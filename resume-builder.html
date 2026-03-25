@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPM – Resume Builder</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <style>
+    /* Inline edit mode */
+    .edit-resume-btn { font-size: 0.72rem; font-weight: 600; padding: 4px 11px; border-radius: 20px; border: 1px solid var(--border); background: var(--light-bg); color: var(--text-muted); cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .edit-resume-btn:hover { border-color: var(--green); color: var(--green); }
+    .edit-resume-btn.editing { background: var(--green); border-color: var(--green); color: #fff; }
+    .resume-doc.edit-mode [contenteditable="true"] { outline: none; border-bottom: 1.5px dashed #16a34a; background: #f0fdf4; border-radius: 2px; cursor: text; padding: 1px 2px; transition: background .15s; }
+    .resume-doc.edit-mode [contenteditable="true"]:focus { background: #dcfce7; }
+    .edit-hint { font-size: 0.68rem; color: #16a34a; margin-bottom: 6px; display: none; }
+    .resume-doc.edit-mode .edit-hint { display: block; }
+  </style>
+</head>
+<body class="dashboard-page">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <a href="dashboard.html" class="logo db-logo"><span class="logo-dot"></span> PathPM</a>
+    <div class="sidebar-profile">
+      <div class="sp-avatar" id="sidebarAvatar">—</div>
+      <div class="sp-name" id="sidebarName">—</div>
+      <div class="sp-role-badge" id="sidebarRoleBadge">PM</div>
+    </div>
+    <div class="sp-score-block sidebar-score-block">
+      <div class="sp-score-label">READINESS SCORE</div>
+      <div class="sp-score-row">
+        <span class="sp-score-num" id="sidebarScoreNum">—</span>
+        <span class="sp-score-sub">/ 100</span>
+      </div>
+      <div class="sp-score-bar"><div class="sp-bar-fill" id="sidebarBarFill"></div></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="db-main rb-main">
+
+    <!-- TOPBAR -->
+    <header class="db-topbar">
+      <div class="topbar-left"><a href="dashboard.html" class="btn-back">← Back</a></div>
+      <div class="topbar-right">
+        <button class="signout-btn" onclick="signOut()">Sign out</button>
+        <div class="topbar-avatar" id="topAvatar">YM</div>
+      </div>
+    </header>
+
+    <!-- THREE-COLUMN LAYOUT -->
+    <div class="rb-layout">
+
+      <!-- LEFT: INPUT PANEL -->
+      <div class="rb-left">
+        <h3 class="rb-section-title">Resume Builder</h3>
+
+        <div class="rb-jd-section">
+          <p class="rb-label">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M4 5h6M4 7h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            Paste Job Description
+          </p>
+          <div class="rb-tabs">
+            <button class="rb-tab active" onclick="switchJdTab(this,'text')">Paste Text</button>
+            <button class="rb-tab" onclick="switchJdTab(this,'url')">Paste URL</button>
+          </div>
+          <div id="jd-text-panel">
+            <textarea id="jdTextarea" class="rb-textarea" placeholder="Paste the full job description here to tailor your resume for maximum impact..." oninput="onJdInput()"></textarea>
+          </div>
+          <div id="jd-url-panel" class="hidden">
+            <input type="url" id="jdUrl" class="rb-url-input" placeholder="https://jobs.company.com/pm-role" />
+          </div>
+        </div>
+
+        <button class="btn-generate" id="generateBtn" onclick="generateResume()">
+          Generate Tailored Resume →
+        </button>
+
+        <div class="rb-previous">
+          <p class="rb-prev-label">PREVIOUS TAILORED RESUMES</p>
+          <div class="rb-prev-list">
+            <button class="rb-prev-item" onclick="loadPrevious('Senior PM @ Flipkart')">
+              <span>📄</span> Senior PM @ Flipkart
+            </button>
+            <button class="rb-prev-item" onclick="loadPrevious('Growth Lead @ Zomato')">
+              <span>📄</span> Growth Lead @ Zomato
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MIDDLE: RESUME PREVIEW -->
+      <div class="rb-middle">
+        <div class="resume-preview" id="resumePreview">
+
+          <div class="resume-placeholder" id="resumePlaceholder">
+            <p class="rp-placeholder-icon">📄</p>
+            <p>Paste a job description and click <strong>Generate</strong> to see your tailored resume here.</p>
+          </div>
+
+          <div class="resume-doc hidden" id="resumeDoc">
+            <div class="ats-bar">
+              <span id="resumeJobTitle">Senior Growth PM</span>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span class="ats-pill">ATS Score: <strong id="atsScore">71</strong></span>
+                <button class="edit-resume-btn" id="editToggleBtn" onclick="toggleEditMode()">✏ Edit</button>
+              </div>
+            </div>
+            <p class="edit-hint" id="editHint">✏ Click on any text to edit it directly. Click "Done" when finished.</p>
+            <p class="resume-location" id="resumeSubtitle">Bengaluru, IN</p>
+
+            <div class="resume-alert" id="resumeAlert">
+              <span>⚠️</span>
+              <div>
+                <strong>Title Optimisation:</strong> Your current title '<span id="currentTitle">Business Analyst</span>' only matches 32% of JD keywords. Consider upgrading your title to <strong id="suggestedTitle">Product Specialist</strong> or <strong>Junior PM</strong>.
+              </div>
+            </div>
+
+            <div class="resume-name-block">
+              <h2 id="resumeName" data-editable>YASH MEHTA</h2>
+              <p class="resume-role-tag" data-editable>PRODUCT MANAGER</p>
+            </div>
+
+            <div class="resume-section">
+              <p class="rs-label">PROFESSIONAL SUMMARY</p>
+              <p class="rs-body" id="resumeSummary" data-editable>Strategy Product Manager with 4+ years experience in B2B SaaS and Fintech, driving cross-functional roadmaps and end-to-end product delivery. Expertise in A/B testing, funnel optimisation, leadership, and lean commerce environments.</p>
+            </div>
+
+            <div class="resume-section" id="resumeExperience">
+              <p class="rs-label">PROFESSIONAL EXPERIENCE</p>
+              <!-- populated by generateResume() -->
+            </div>
+
+            <div class="resume-section">
+              <p class="rs-label">KEY COMPETENCIES</p>
+              <div class="rs-tags">
+                <span class="rs-tag" data-editable>Product Strategy</span>
+                <span class="rs-tag" data-editable>A/B Testing</span>
+                <span class="rs-tag" data-editable>Stakeholder Mgmt</span>
+                <span class="rs-tag" data-editable>Data Analysis</span>
+                <span class="rs-tag" data-editable>Roadmapping</span>
+                <span class="rs-tag" data-editable>Growth Metrics</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- RIGHT: CHANGES + DOWNLOAD -->
+      <div class="rb-right">
+
+        <div class="changes-card hidden" id="changesCard">
+          <p class="rb-label">Changes Made</p>
+          <div class="changes-list" id="changesList">
+            <div class="change-item">
+              <span class="change-dot green"></span>
+              <div>
+                <strong>Keyword Injection</strong>
+                <p>Added 12 high-frequency keywords from JD including "growth loops" and "funnel optimisation".</p>
+              </div>
+            </div>
+            <div class="change-item">
+              <span class="change-dot green"></span>
+              <div>
+                <strong>Action Verbs Updated</strong>
+                <p>Replaced passive phrases with "Led", "Drove", "Executed" throughout.</p>
+              </div>
+            </div>
+            <div class="change-item">
+              <span class="change-dot green"></span>
+              <div>
+                <strong>Entity Recognition</strong>
+                <p>Highlighted company experience in PM-adjacent context.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="download-card" id="downloadCard">
+          <p class="rb-label">Ready to download</p>
+          <p class="dl-sub">Optimised for <span id="dlRole">Senior Growth PM</span> · ATS Score <span id="dlScore">71</span></p>
+          <button class="btn-download" onclick="downloadResume()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Download PDF
+          </button>
+        </div>
+
+        <div class="relevant-card hidden" id="relevantCard">
+          <p class="rb-label">Relevant Opportunities</p>
+          <div class="relevant-list">
+            <div class="rel-item">
+              <div class="rel-info">
+                <strong>Product Manager, Growth</strong>
+                <span>Swiggy</span>
+              </div>
+              <button class="btn-apply" onclick="window.open('https://careers.swiggy.com/#career','_blank')">Apply →</button>
+            </div>
+            <div class="rel-item">
+              <div class="rel-info">
+                <strong>Product Manager, Growth</strong>
+                <span>Flipkart</span>
+              </div>
+              <button class="btn-apply" onclick="window.open('https://www.flipkartcareers.com/#!/joblist','_blank')">Apply →</button>
+            </div>
+            <div class="rel-item">
+              <div class="rel-info">
+                <strong>Growth Lead</strong>
+                <span>Razorpay</span>
+              </div>
+              <button class="btn-apply" onclick="window.open('https://razorpay.com/jobs/','_blank')">Apply →</button>
+            </div>
+            <div class="rel-item">
+              <div class="rel-info">
+                <strong>Senior Product Manager</strong>
+                <span>Zomato</span>
+              </div>
+              <button class="btn-apply" onclick="window.open('https://www.zomato.com/careers','_blank')">Apply →</button>
+            </div>
+            <div class="rel-item">
+              <div class="rel-info">
+                <strong>Senior Product Manager</strong>
+                <span>CRED</span>
+              </div>
+              <button class="btn-apply" onclick="window.open('https://careers.cred.club/','_blank')">Apply →</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast hidden">
+    <span class="toast-icon">✓</span>
+    <span id="toast-msg"></span>
+  </div>
+
+  <script>
+    const user  = JSON.parse(sessionStorage.getItem('pathpm_user') || '{"name":"Yash Mehta"}');
+    const score = parseInt(sessionStorage.getItem('pathpm_score') || '62');
+    const roleLabel = sessionStorage.getItem('pathpm_role_label') || 'Growth PM';
+
+    const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+    document.getElementById('topAvatar').textContent        = initials;
+    document.getElementById('resumeName').textContent       = user.name.toUpperCase();
+    document.getElementById('sidebarAvatar').textContent    = initials;
+    document.getElementById('sidebarName').textContent      = user.name;
+    document.getElementById('sidebarRoleBadge').textContent = 'Target: ' + roleLabel;
+    document.getElementById('sidebarScoreNum').textContent  = score;
+    setTimeout(() => { document.getElementById('sidebarBarFill').style.width = score + '%'; }, 300);
+
+    function switchJdTab(btn, type) {
+      document.querySelectorAll('.rb-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('jd-text-panel').classList.toggle('hidden', type !== 'text');
+      document.getElementById('jd-url-panel').classList.toggle('hidden', type !== 'url');
+    }
+
+    function onJdInput() {
+      const val = document.getElementById('jdTextarea').value.trim();
+      document.getElementById('generateBtn').style.opacity = val ? '1' : '0.6';
+    }
+
+    /* ── JD keyword extraction ── */
+    const PM_KEYWORDS = [
+      'roadmap','a/b testing','experimentation','growth','retention','engagement',
+      'kpis','metrics','okrs','user research','customer discovery','user interviews',
+      'agile','scrum','sprint','backlog','prioritisation','prioritization','stakeholder',
+      'cross-functional','go-to-market','launch','sql','python','data analysis','analytics',
+      'machine learning','ml','ai','api','funnel','conversion','activation','onboarding',
+      'monetisation','monetization','revenue','churn','nps','product strategy',
+      'competitive analysis','market research','b2b','b2c','saas','fintech','e-commerce',
+      'design thinking','wireframes','prd','user stories','sprint planning','data-driven'
+    ];
+
+    function extractPMKeywords(jd) {
+      const lower = jd.toLowerCase();
+      return PM_KEYWORDS.filter(kw => lower.includes(kw));
+    }
+
+    function extractJobTitle(jd) {
+      const m = jd.match(/((?:senior|lead|principal|associate)?\s*(?:product|growth|technical|platform|data|ai\/ml)\s*manager)/i);
+      return m ? m[1].trim().replace(/\b\w/g, c => c.toUpperCase()) : null;
+    }
+
+    function buildSummary(role, company, industry, years, skills, jdKws, target) {
+      const topSkills = skills.slice(0, 3).join(', ') || 'cross-functional collaboration, analytical thinking, and structured problem-solving';
+      const jdHighlight = jdKws.slice(0, 3).map(k => k.replace(/\b\w/g, c => c.toUpperCase())).join(', ') || 'roadmapping, stakeholder alignment, and go-to-market execution';
+      return `${role} with ${years} of experience in ${industry}, transitioning into ${target}. Demonstrated expertise in ${topSkills}, with a track record of driving business outcomes through data-informed decisions and cross-functional collaboration. Skilled in ${jdHighlight}.`;
+    }
+
+    function buildBullets(role, company, jdKws) {
+      const bullets = [
+        `Led cross-functional initiatives at ${company} spanning product delivery and ${role} responsibilities, improving team output by 20% through structured prioritisation and sprint planning.`,
+        `Defined and tracked key performance metrics for ${company}'s core workflows, identifying a critical drop-off point that reduced process cycle time by 18%.`,
+        `Partnered with engineering and design to scope and deliver 3 high-impact features aligned with business OKRs, each shipped on time and within budget.`,
+      ];
+      if (jdKws.includes('a/b testing') || jdKws.includes('experimentation')) {
+        bullets[0] = `Designed and ran A/B experiments at ${company} to optimise key user flows, improving conversion rates by 17% over two quarters.`;
+      } else if (jdKws.includes('growth') || jdKws.includes('retention')) {
+        bullets[0] = `Drove growth and retention initiatives at ${company}, contributing to a 22% increase in 30-day active users through targeted funnel improvements.`;
+      } else if (jdKws.includes('sql') || jdKws.includes('data analysis')) {
+        bullets[0] = `Built dashboards and data pipelines at ${company} to surface product health metrics, enabling the team to make data-driven decisions 40% faster.`;
+      }
+      if (jdKws.includes('stakeholder') || jdKws.includes('cross-functional')) {
+        bullets[1] = `Aligned cross-functional teams (engineering, design, marketing) at ${company} around a unified roadmap, reducing scope creep by 25% and accelerating delivery cycles.`;
+      }
+      if (jdKws.includes('agile') || jdKws.includes('scrum') || jdKws.includes('sprint')) {
+        bullets[2] = `Introduced Agile ceremonies and sprint cadences at ${company}, improving team velocity by 30% and reducing unplanned work to under 10% of sprint capacity.`;
+      }
+      return bullets;
+    }
+
+    function buildCompetencies(userSkills, jdKws) {
+      const base = userSkills.slice(0, 4);
+      const pmPool = ['Product Strategy','Roadmapping','A/B Testing','Stakeholder Mgmt','Data Analysis','Agile / Scrum','User Research','Go-to-Market','Prioritisation'];
+      const extras = pmPool.filter(c =>
+        !base.some(b => b.toLowerCase().includes(c.toLowerCase().split(' ')[0].toLowerCase())) &&
+        jdKws.some(k => c.toLowerCase().includes(k.split('/')[0].trim()))
+      ).slice(0, 3);
+      return [...base, ...extras].slice(0, 6);
+    }
+
+    function buildChanges(matched, injected, role, target) {
+      let html = '';
+      if (injected.length) html += `<div class="change-item"><span class="change-dot green"></span><div><strong>Keywords Injected</strong><p>Added ${injected.length} high-frequency terms from the JD: <em>${injected.slice(0,5).join(', ')}</em></p></div></div>`;
+      html += `<div class="change-item"><span class="change-dot green"></span><div><strong>Summary Reframed</strong><p>Repositioned your ${role} background as ${target}-relevant, emphasising transferable impact and PM-adjacent skills.</p></div></div>`;
+      if (matched.length) html += `<div class="change-item"><span class="change-dot green"></span><div><strong>Skills Matched</strong><p>${matched.slice(0,4).join(', ')} from your profile directly matched this JD — surfaced prominently.</p></div></div>`;
+      html += `<div class="change-item"><span class="change-dot green"></span><div><strong>Bullets Rewritten</strong><p>Experience bullets now lead with impact metrics and action verbs aligned with how PM hiring managers evaluate candidates.</p></div></div>`;
+      return html;
+    }
+
+    function generateResume() {
+      const jdText = document.getElementById('jdTextarea').value.trim();
+      const jdUrl  = document.getElementById('jdUrl').value.trim();
+
+      // URL fetching requires a server — guide user to paste text instead
+      if (!jdText && jdUrl) {
+        showToast('Please copy and paste the job description text — URL fetching requires a server.');
+        switchJdTab(document.querySelectorAll('.rb-tab')[0], 'text');
+        return;
+      }
+
+      if (!jdText) { showToast('Paste a job description first!'); return; }
+
+      const btn = document.getElementById('generateBtn');
+      btn.textContent = 'Generating...';
+      btn.disabled = true;
+
+      setTimeout(() => {
+        // Pull user's actual resume data from sessionStorage
+        const rd = JSON.parse(sessionStorage.getItem('pathpm_resume_data') || '{}');
+        const sg = JSON.parse(sessionStorage.getItem('pathpm_skill_gap')   || '{}');
+
+        const userName   = rd.name        || user.name        || 'Your Name';
+        const role       = rd.currentRole || 'Professional';
+        const company    = rd.company     || 'Previous Company';
+        const industry   = rd.industry    || 'Technology';
+        const years      = rd.yearsExp    || '3+ years';
+        const userSkills = (rd.skills && rd.skills.length) ? rd.skills : (sg.have || []);
+
+        const jdKws       = extractPMKeywords(jdText);
+        const jobTitle    = extractJobTitle(jdText) || ('Senior ' + roleLabel);
+        const matched     = userSkills.filter(s => jdText.toLowerCase().includes(s.toLowerCase()));
+        const injected    = jdKws.slice(0, 8);
+        const atsScore    = Math.min(94, 52 + jdKws.length * 2 + matched.length * 3);
+
+        const summary      = buildSummary(role, company, industry, years, userSkills, jdKws, roleLabel);
+        const bullets      = buildBullets(role, company, jdKws);
+        const competencies = buildCompetencies(userSkills, jdKws);
+        const changesHtml  = buildChanges(matched, injected, role, roleLabel);
+
+        // Build experience section — use parsed entries if available, else fall back
+        const expEntries = (rd.experiences && rd.experiences.length > 0) ? rd.experiences : null;
+        let expHTML = '<p class="rs-label">PROFESSIONAL EXPERIENCE</p>';
+
+        if (expEntries) {
+          expEntries.forEach((exp, idx) => {
+            // For the most recent role, use JD-tailored bullets; keep older roles as-is
+            const entryBullets = idx === 0
+              ? bullets.map(b => `<li data-editable>${b}</li>`).join('')
+              : (exp.bullets.length > 0
+                  ? exp.bullets.map(b => `<li data-editable>${b}</li>`).join('')
+                  : `<li data-editable>Contributed to key initiatives in ${exp.title || role} capacity, delivering measurable outcomes across cross-functional projects.</li>`);
+            expHTML += `
+              <div class="rs-exp-entry">
+                <div class="rs-exp">
+                  <strong data-editable>${exp.title}${exp.company ? ' — ' + exp.company : ''}</strong>
+                  <span data-editable>${exp.dates || ''}</span>
+                </div>
+                <ul class="rs-bullets">${entryBullets}</ul>
+              </div>`;
+          });
+        } else {
+          // No parsed experiences — use single entry from basic fields
+          expHTML += `
+            <div class="rs-exp-entry">
+              <div class="rs-exp">
+                <strong data-editable>${role} — ${company}</strong>
+                <span data-editable>${years}</span>
+              </div>
+              <ul class="rs-bullets" id="resumeBullets">${bullets.map(b => `<li data-editable>${b}</li>`).join('')}</ul>
+            </div>`;
+        }
+
+        // Populate resume doc
+        document.getElementById('resumeName').textContent        = userName.toUpperCase();
+        document.getElementById('resumeJobTitle').textContent    = jobTitle;
+        document.getElementById('resumeSubtitle').textContent    = userName + ' · Tailored for ' + jobTitle;
+        document.getElementById('currentTitle').textContent      = role;
+        document.getElementById('atsScore').textContent          = atsScore;
+        document.getElementById('resumeSummary').textContent     = summary;
+        document.getElementById('resumeExperience').innerHTML    = expHTML;
+        document.querySelector('.rs-tags').innerHTML             = competencies.map(c => `<span class="rs-tag" data-editable>${c}</span>`).join('');
+        document.getElementById('changesList').innerHTML         = changesHtml;
+        document.getElementById('dlRole').textContent            = jobTitle;
+        document.getElementById('dlScore').textContent           = atsScore;
+
+        // Show sections
+        document.getElementById('resumePlaceholder').classList.add('hidden');
+        document.getElementById('resumeDoc').classList.remove('hidden');
+        document.getElementById('changesCard').classList.remove('hidden');
+        document.getElementById('downloadCard').classList.remove('hidden');
+        document.getElementById('relevantCard').classList.remove('hidden');
+
+        btn.textContent = 'Regenerate →';
+        btn.disabled    = false;
+        showToast('Resume tailored! ATS Score: ' + atsScore);
+
+        // Save to Supabase
+        (async () => {
+          const sbUser = await getCurrentUser();
+          if (!sbUser) return;
+          const savedBullets = [...document.querySelectorAll('#resumeBullets li')].map(l => l.innerText);
+          const savedTags    = [...document.querySelectorAll('.rs-tag')].map(t => t.innerText);
+          await sb.from('tailored_resumes').insert({
+            user_id:      sbUser.id,
+            job_title:    jobTitle,
+            ats_score:    atsScore,
+            summary:      summary,
+            bullets:      savedBullets,
+            competencies: savedTags,
+            jd_text:      jdText
+          });
+        })();
+      }, 1800);
+    }
+
+    function loadPrevious(title) {
+      document.getElementById('resumePlaceholder').classList.add('hidden');
+      document.getElementById('resumeDoc').classList.remove('hidden');
+      document.getElementById('relevantCard').classList.remove('hidden');
+      document.getElementById('resumeJobTitle').textContent = title;
+      document.getElementById('dlRole').textContent = title;
+      showToast('Loaded: ' + title);
+    }
+
+    // ── Inline editing ────────────────────────────────
+    let editMode = false;
+
+    function toggleEditMode() {
+      editMode = !editMode;
+      const doc = document.getElementById('resumeDoc');
+      const btn = document.getElementById('editToggleBtn');
+
+      doc.classList.toggle('edit-mode', editMode);
+      btn.textContent = editMode ? '✓ Done' : '✏ Edit';
+      btn.classList.toggle('editing', editMode);
+
+      doc.querySelectorAll('[data-editable]').forEach(el => {
+        el.contentEditable = editMode ? 'true' : 'false';
+        if (editMode) el.setAttribute('spellcheck', 'false');
+      });
+
+      if (editMode) showToast('Edit mode on — click any text to change it');
+    }
+
+    function downloadResume() {
+      const doc = document.getElementById('resumeDoc');
+      if (doc.classList.contains('hidden')) { showToast('Generate a resume first!'); return; }
+
+      showToast('Preparing your PDF…');
+
+      const name    = document.getElementById('resumeName').innerText || 'Resume';
+      const roleTag = doc.querySelector('.resume-role-tag')?.innerText || 'PRODUCT MANAGER';
+      const summary = document.getElementById('resumeSummary').innerText;
+      const tags    = [...document.querySelectorAll('.rs-tag')].map(t => `<span class="rs-tag">${t.innerText}</span>`).join('');
+
+      // Build experience HTML from all dynamic entries
+      const expEntriesDOM = doc.querySelectorAll('.rs-exp-entry');
+      let expHTML = '';
+      expEntriesDOM.forEach(entry => {
+        const strong = entry.querySelector('.rs-exp strong')?.innerText || '';
+        const span   = entry.querySelector('.rs-exp span')?.innerText   || '';
+        const lis    = [...entry.querySelectorAll('li')].map(l => `<li>${l.innerText}</li>`).join('');
+        expHTML += `<div class="rs-exp"><strong>${strong}</strong><span>${span}</span></div><ul>${lis}</ul>`;
+      });
+
+      const html = `<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8"/>
+<title>${name} – Resume</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; color: #111; background: #fff; padding: 48px 56px; max-width: 760px; margin: 0 auto; }
+  h2 { font-size: 1.5rem; letter-spacing: 0.08em; color: #111; font-weight: 800; }
+  .resume-role-tag { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; color: #6b7280; margin: 6px 0 0; }
+  .resume-name-block { border-bottom: 2px solid #111; padding-bottom: 16px; margin-bottom: 22px; }
+  .resume-section { margin-bottom: 20px; }
+  .rs-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; color: #9ca3af; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; margin-bottom: 10px; text-transform: uppercase; }
+  .rs-body { font-size: 0.83rem; line-height: 1.65; color: #374151; }
+  .rs-exp { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.84rem; font-weight: 700; color: #111; margin-bottom: 8px; }
+  .rs-exp span { font-weight: 400; color: #6b7280; font-size: 0.78rem; }
+  ul { padding-left: 18px; margin-top: 0; }
+  li { font-size: 0.81rem; line-height: 1.65; color: #374151; margin-bottom: 5px; }
+  .rs-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .rs-tag { font-size: 0.72rem; background: #f3f4f6; border-radius: 20px; padding: 4px 12px; color: #374151; }
+  @media print { body { padding: 0; } }
+</style>
+</head><body>
+  <div class="resume-name-block">
+    <h2>${name}</h2>
+    <p class="resume-role-tag">${roleTag}</p>
+  </div>
+  <div class="resume-section">
+    <p class="rs-label">Professional Summary</p>
+    <p class="rs-body">${summary}</p>
+  </div>
+  <div class="resume-section">
+    <p class="rs-label">Professional Experience</p>
+    ${expHTML}
+  </div>
+  <div class="resume-section">
+    <p class="rs-label">Key Competencies</p>
+    <div class="rs-tags">${tags}</div>
+  </div>
+</body></html>`;
+
+      const w = window.open('', '_blank', 'width=820,height=1000');
+      w.document.write(html);
+      w.document.close();
+      setTimeout(() => { w.focus(); w.print(); }, 600);
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      t.classList.remove('hidden');
+      setTimeout(() => t.classList.add('hidden'), 2800);
+    }
+  </script>
+
+</body>
+</html>

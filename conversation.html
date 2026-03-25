@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPM – AI Assessment</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+</head>
+<body class="convo-page">
+
+  <!-- NAV -->
+  <nav class="convo-nav">
+    <a href="dashboard.html" class="logo on-logo"><span class="logo-dot"></span> PathPM</a>
+    <div class="convo-progress-wrap">
+      <span class="convo-progress-label" id="progressLabel">Question 1 of ~6</span>
+      <div class="convo-progress-bar">
+        <div class="convo-progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="save-exit-btn" onclick="handleSave()">Save</button>
+      <button class="signout-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </nav>
+
+  <!-- MAIN AREA -->
+  <div class="assessment-layout">
+
+  <!-- LEFT PANEL -->
+  <aside class="side-panel">
+    <div class="sp-profile">
+      <div class="sp-avatar" id="spAvatar">—</div>
+      <div class="sp-name" id="spName">—</div>
+      <div class="sp-role-badge" id="spRoleBadge">PM</div>
+    </div>
+    <div class="sp-score-block">
+      <div class="sp-score-label">RESUME MATCH</div>
+      <div class="sp-score-row">
+        <span class="sp-score-num" id="spScore">—</span>
+        <span class="sp-score-sub">/ 100</span>
+      </div>
+      <div class="sp-score-bar"><div class="sp-bar-fill" id="spBarFill"></div></div>
+    </div>
+    <div class="sp-gap-section">
+      <div class="sp-gap-title">✅ YOU HAVE</div>
+      <div class="sp-gap-chips" id="spHave"></div>
+    </div>
+    <div class="sp-gap-section">
+      <div class="sp-gap-title">📚 TO DEVELOP</div>
+      <div class="sp-gap-chips" id="spMissing"></div>
+    </div>
+  </aside>
+
+  <!-- RIGHT: CHAT -->
+  <div class="side-content">
+  <div class="convo-layout">
+    <div class="chat-window" id="chatWindow">
+      <!-- messages injected here -->
+    </div>
+
+    <!-- INPUT -->
+    <div class="chat-input-area">
+      <div class="voice-status hidden" id="voiceStatus">
+        <span class="voice-dot"></span> Listening... speak now
+      </div>
+      <!-- STARTER CHIPS -->
+      <div class="starter-chips hidden" id="starterChips"></div>
+      <div class="chat-input-row">
+        <textarea
+          id="userInput"
+          class="chat-textarea"
+          placeholder="Bullet points are fine — share what comes to mind..."
+          rows="1"
+          onkeydown="handleKey(event)"
+          oninput="autoResize(this); clearInputWarning(); hideStarterChips()"
+        ></textarea>
+        <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="Voice input">
+          <svg id="micIcon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="7" y="1" width="6" height="10" rx="3" fill="currentColor"/>
+            <path d="M3 9a7 7 0 0014 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="10" y1="16" x2="10" y2="19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="7" y1="19" x2="13" y2="19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M2 9h14M9 2l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <p class="input-hint">Press Enter to send · Shift+Enter for new line · 🎤 mic for voice · bullet points are totally fine</p>
+    </div>
+  </div><!-- end convo-layout -->
+  <div class="role-footer">
+    <a href="case-study.html" class="btn-back">← Back</a>
+  </div>
+  </div><!-- end side-content -->
+  </div><!-- end assessment-layout -->
+
+  <script>
+    /* ─── SIDE PANEL ─── */
+    (function() {
+      const rd  = JSON.parse(sessionStorage.getItem('pathpm_resume_data') || '{}');
+      const sg  = JSON.parse(sessionStorage.getItem('pathpm_skill_gap')   || '{}');
+      const usr = JSON.parse(sessionStorage.getItem('pathpm_user')        || '{}');
+      const sc  = sessionStorage.getItem('pathpm_score') || '—';
+      const name = rd.name || usr.name || 'You';
+      document.getElementById('spAvatar').textContent    = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+      document.getElementById('spName').textContent      = name;
+      document.getElementById('spRoleBadge').textContent = 'Target: ' + (sessionStorage.getItem('pathpm_role_label') || 'PM');
+      document.getElementById('spScore').textContent     = sc;
+      setTimeout(() => { document.getElementById('spBarFill').style.width = sc + '%'; }, 300);
+      const have    = sg.have    || [];
+      const missing = sg.missing || [];
+      document.getElementById('spHave').innerHTML    = have.length    ? have.map(s=>`<span class="gap-chip gap-have">${s}</span>`).join('')    : '<span class="sp-empty">—</span>';
+      document.getElementById('spMissing').innerHTML = missing.length ? missing.map(s=>`<span class="gap-chip gap-miss">${s}</span>`).join('') : '<span class="sp-empty">—</span>';
+    })();
+
+    /* ─── SESSION ─── */
+    const user       = JSON.parse(sessionStorage.getItem('pathpm_user') || '{"name":"there","email":""}');
+    const role       = sessionStorage.getItem('pathpm_role') || 'growth';
+    const roleLabel  = sessionStorage.getItem('pathpm_role_label') || 'Growth PM';
+    const firstName  = user.name.split(' ')[0];
+    const caseStudy  = JSON.parse(sessionStorage.getItem('pathpm_case_study') || '{}');
+    const skillGap   = JSON.parse(sessionStorage.getItem('pathpm_skill_gap') || '{}');
+
+    /* ─── QUESTIONS — loaded from case study sessionStorage ─── */
+    // Build opening message that references the case study title
+    function buildOpeningQuestion(q, index) {
+      if (index === 0) {
+        const csTitle = caseStudy.title ? `"${caseStudy.title}"` : 'the case study';
+        return { text: `Hi ${firstName}! You've read ${csTitle}.\n\nI'll ask you ${(caseStudy.questions || []).length} questions — some about the case, some about your own experience. There are no right or wrong answers; I'm looking at how you think through problems.\n\nLet's get into it.\n\n${q.text}`, probe: q.probe };
+      }
+      return q;
+    }
+
+    const rawQuestions = (caseStudy.questions && caseStudy.questions.length)
+      ? caseStudy.questions
+      : [{ text: `Hi ${firstName}! Let's discuss your approach to PM challenges. Tell me about a time you had to prioritise competing demands.`, probe: 'Prioritisation' }];
+
+    const questions = rawQuestions.map((q, i) => buildOpeningQuestion(q, i));
+    let currentQ   = 0;
+    let isTyping   = false;
+    let recognition = null;
+    let isListening = false;
+    const convoHistory = [];
+
+    /* ─── RENDER HELPERS ─── */
+    function scrollToBottom() {
+      const w = document.getElementById('chatWindow');
+      w.scrollTop = w.scrollHeight;
+    }
+
+    function appendMessage(role, text, animate = false, onDone = null) {
+      const w = document.getElementById('chatWindow');
+      const wrap = document.createElement('div');
+      wrap.className = `chat-msg ${role === 'ai' ? 'ai-msg' : 'user-msg'}`;
+
+      if (role === 'ai') {
+        wrap.innerHTML = `
+          <div class="ai-avatar">AI</div>
+          <div class="msg-bubble ai-bubble ${animate ? 'msg-animate' : ''}">
+            <div class="msg-text"></div>
+            ${text.includes('[Probing:') ? `<div class="probe-tag">${text.match(/\[Probing: ([^\]]+)\]/)?.[1] || ''}</div>` : ''}
+          </div>`;
+        w.appendChild(wrap);
+        const msgText = wrap.querySelector('.msg-text');
+        const clean = text.replace(/\[Probing:[^\]]+\]/g, '').trim();
+        if (animate) {
+          typeText(msgText, clean, () => { scrollToBottom(); if (onDone) onDone(); });
+        } else {
+          msgText.innerHTML = clean.replace(/\n/g, '<br>');
+          if (onDone) onDone();
+        }
+      } else {
+        wrap.innerHTML = `
+          <div class="msg-bubble user-bubble">
+            <div class="msg-text">${text.replace(/\n/g, '<br>')}</div>
+          </div>
+          <div class="user-avatar-sm" id="userAvatarSm">${getInitials()}</div>`;
+        w.appendChild(wrap);
+      }
+
+      scrollToBottom();
+      return wrap;
+    }
+
+    function showTypingIndicator() {
+      const w = document.getElementById('chatWindow');
+      const div = document.createElement('div');
+      div.className = 'chat-msg ai-msg';
+      div.id = 'typingIndicator';
+      div.innerHTML = `
+        <div class="ai-avatar">AI</div>
+        <div class="msg-bubble ai-bubble typing-bubble">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        </div>`;
+      w.appendChild(div);
+      scrollToBottom();
+    }
+
+    function removeTypingIndicator() {
+      const el = document.getElementById('typingIndicator');
+      if (el) el.remove();
+    }
+
+    function typeText(el, text, onDone) {
+      const clean = text.replace(/\n/g, '<br>');
+      let i = 0;
+      const chars = text.split('');
+      let html = '';
+      const interval = setInterval(() => {
+        if (i >= chars.length) {
+          clearInterval(interval);
+          el.innerHTML = clean;
+          if (onDone) onDone();
+          return;
+        }
+        html += chars[i] === '\n' ? '<br>' : chars[i];
+        el.innerHTML = html;
+        i++;
+        scrollToBottom();
+      }, 18);
+    }
+
+    function updateProgress() {
+      const total = questions.length;
+      const pct = Math.round((currentQ / total) * 100);
+      document.getElementById('progressLabel').textContent =
+        `Question ${Math.min(currentQ + 1, total)} of ~${total}`;
+      document.getElementById('progressFill').style.width = pct + '%';
+    }
+
+    function getInitials() {
+      return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+
+    /* ─── ASK NEXT QUESTION ─── */
+    function askQuestion(index, delay = 800) {
+      if (index >= questions.length) {
+        finishConversation();
+        return;
+      }
+      isTyping = true;
+      setSendEnabled(false);
+      setTimeout(() => {
+        showTypingIndicator();
+        const thinkTime = 900 + questions[index].text.length * 4;
+        setTimeout(() => {
+          removeTypingIndicator();
+          appendMessage('ai', questions[index].text, true, () => {
+            if (index > 0) {  // skip chips on opening intro message
+              showStarterChips(questions[index].probe);
+              showFrameworkHint(questions[index].probe, questions[index].text);
+            }
+          });
+          isTyping = false;
+          setSendEnabled(true);
+          updateProgress();
+          currentQ = index;
+          document.getElementById('userInput').focus();
+        }, thinkTime);
+      }, delay);
+    }
+
+    function finishConversation() {
+      isTyping = true;
+      setSendEnabled(false);
+      showTypingIndicator();
+      setTimeout(() => {
+        removeTypingIndicator();
+        const closing = `Thanks ${firstName}! We have a much better picture now. 🎉\n\nLet me generate your full skill gap analysis and personalised roadmap. This will take just a moment...`;
+        appendMessage('ai', closing, true);
+        document.getElementById('progressLabel').textContent = 'Complete!';
+        document.getElementById('progressFill').style.width = '100%';
+
+        // Hide input
+        document.querySelector('.chat-input-area').style.display = 'none';
+
+        // Save conversation to Supabase
+        (async () => {
+          const user = await getCurrentUser();
+          if (!user) return;
+          const role      = sessionStorage.getItem('pathpm_role') || 'growth';
+          const baseScore = parseInt(sessionStorage.getItem('pathpm_score') || '62');
+          const newScore  = Math.min(baseScore + 8, 99);   // conversation adds up to 8 pts
+
+          await sb.from('ai_conversations').insert({
+            user_id:         user.id,
+            role_key:        role,
+            messages:        convoHistory,
+            questions_asked: questionCount,
+            completed:       true,
+            score_after:     newScore,
+            completed_at:    new Date().toISOString()
+          });
+          await updateScore(user.id, newScore);
+        })();
+
+        // Show improvement report after a beat
+        setTimeout(() => {
+          const w = document.getElementById('chatWindow');
+
+          // Build report from skill gap data
+          const missing  = skillGap.missing  || [];
+          const have     = skillGap.have     || [];
+          const mcqScore = parseInt(sessionStorage.getItem('pathpm_score') || '60');
+
+          const ACTION_PLANS = {
+            'A/B Testing':       { resource: 'Trustworthy Online Controlled Experiments (book)', action: 'Run a mock A/B test design for a product you use daily' },
+            'Funnel Analysis':   { resource: 'Reforge Growth Series', action: 'Map the activation funnel of any app and identify the top drop-off point' },
+            'SQL':               { resource: 'Mode Analytics SQL Tutorial (free)', action: 'Write 5 queries on a public dataset — user retention, cohort analysis' },
+            'Python':            { resource: 'Kaggle Learn — Python (free)', action: 'Build one data analysis notebook on a product dataset' },
+            'Machine Learning':  { resource: 'Chip Huyen — Designing ML Systems', action: 'Write a 1-page spec for an ML feature at a product you know' },
+            'Data Pipelines':    { resource: 'dbt Learn (free)', action: 'Understand the difference between ETL and ELT and when to use each' },
+            'API / Integrations':{ resource: 'APIs for PMs (Lenny\'s Newsletter)', action: 'Read and document a public API (Stripe, Twilio) like a PM would' },
+            'Product Strategy':  { resource: 'Good Strategy Bad Strategy — Richard Rumelt', action: 'Write a 1-page strategy doc for a product you want to work on' },
+            'User Research':     { resource: 'The Mom Test — Rob Fitzpatrick', action: 'Conduct 3 user interviews using The Mom Test framework' },
+            'Go-to-Market':      { resource: 'Obviously Awesome — April Dunford', action: 'Write a positioning doc for a product you want to work on' },
+            'Prioritisation':    { resource: 'RICE framework deep-dive (Intercom blog)', action: 'Prioritise 10 features using RICE and justify your top pick' },
+            'Agile / Scrum':     { resource: 'Scrum Guide (free, scrum.org)', action: 'Shadow or join a sprint planning session, even informally' },
+            'Stakeholder Mgmt':  { resource: 'Influence Without Authority — Cohen & Bradford', action: 'Map stakeholders for a project and write a 1-page alignment doc' },
+          };
+
+          const gapItems = missing.slice(0, 4).map(skill => {
+            const plan = ACTION_PLANS[skill] || { resource: `Search "${skill} for Product Managers"`, action: `Practice ${skill} in a real or mock project` };
+            return `
+              <div class="report-gap-item">
+                <div class="rgi-skill">📚 ${skill}</div>
+                <div class="rgi-action">→ ${plan.action}</div>
+                <div class="rgi-resource">Resource: ${plan.resource}</div>
+              </div>`;
+          }).join('');
+
+          const strengthItems = have.slice(0, 3).map(s => `<span class="report-strength-chip">✅ ${s}</span>`).join('');
+
+          const report = document.createElement('div');
+          report.className = 'improvement-report';
+          report.innerHTML = `
+            <div class="report-header">
+              <h3>Your ${roleLabel} Readiness Report</h3>
+              <p>Based on your resume, MCQ assessment, and this conversation</p>
+            </div>
+
+            ${strengthItems ? `
+            <div class="report-section">
+              <p class="report-section-title">💪 Skills you already bring</p>
+              <div class="report-strengths">${strengthItems}</div>
+            </div>` : ''}
+
+            ${gapItems ? `
+            <div class="report-section">
+              <p class="report-section-title">🎯 Priority areas to develop</p>
+              <div class="report-gaps">${gapItems}</div>
+            </div>` : ''}
+
+            <div class="report-section">
+              <p class="report-section-title">📋 Your 30-day action plan</p>
+              <div class="report-actions">
+                <div class="report-action-item">
+                  <span class="ra-week">Week 1–2</span>
+                  <span class="ra-text">Pick the top skill gap above. Spend 45 min/day on the resource. Take notes like a PM — not a student.</span>
+                </div>
+                <div class="report-action-item">
+                  <span class="ra-week">Week 3</span>
+                  <span class="ra-text">Do the hands-on action for that skill. Ship something — even if it's a doc, a mock analysis, or a 1-pager.</span>
+                </div>
+                <div class="report-action-item">
+                  <span class="ra-week">Week 4</span>
+                  <span class="ra-text">Come back to PathPM. Retake the assessment. Your score should move by 8–12 points if you did the work.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="report-cta">
+              <button class="btn-primary large" onclick="window.location.href='dashboard.html'">
+                View Full Dashboard →
+              </button>
+              <p class="cta-note">Your readiness score and learning path are waiting</p>
+            </div>
+          `;
+          w.appendChild(report);
+          scrollToBottom();
+        }, 3000);
+      }, 1400);
+    }
+
+    /* ─── INPUT VALIDATION ─── */
+    function isMeaningfulInput(text) {
+      const words = text.trim().split(/\s+/).filter(w => w.length > 1);
+      const letters = (text.match(/[a-zA-Z]/g) || []).length;
+      const letterRatio = letters / text.length;
+      return words.length >= 4 && text.length >= 20 && letterRatio >= 0.55;
+    }
+
+    function showInputWarning(msg) {
+      let warn = document.getElementById('inputWarning');
+      if (!warn) {
+        warn = document.createElement('p');
+        warn.id = 'inputWarning';
+        warn.className = 'input-warning';
+        document.querySelector('.chat-input-area').prepend(warn);
+      }
+      warn.textContent = msg;
+      warn.classList.remove('hidden');
+    }
+
+    function clearInputWarning() {
+      const warn = document.getElementById('inputWarning');
+      if (warn) warn.classList.add('hidden');
+    }
+
+    /* ─── SEND MESSAGE ─── */
+    function sendMessage() {
+      if (isTyping) return;
+      const input = document.getElementById('userInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      if (!isMeaningfulInput(text)) {
+        showInputWarning('Please share a bit more — a few sentences help us understand your experience better.');
+        input.focus();
+        return;
+      }
+
+      clearInputWarning();
+      hideStarterChips();
+      appendMessage('user', text);
+      convoHistory.push({ q: questions[currentQ]?.text, a: text });
+      sessionStorage.setItem('pathpm_convo', JSON.stringify(convoHistory));
+
+      input.value = '';
+      input.style.height = 'auto';
+
+      askQuestion(currentQ + 1);
+    }
+
+    function handleKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+    }
+
+    function setSendEnabled(enabled) {
+      document.getElementById('sendBtn').disabled = !enabled;
+      document.getElementById('userInput').disabled = !enabled;
+    }
+
+    /* ─── VOICE INPUT ─── */
+    function toggleVoice() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert('Voice input is not supported in your browser. Try Chrome.');
+        return;
+      }
+      if (isListening) {
+        recognition.stop();
+        return;
+      }
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SR();
+      recognition.lang = 'en-US';
+      recognition.interimResults = true;
+      recognition.continuous = false;
+
+      recognition.onstart = () => {
+        isListening = true;
+        document.getElementById('micBtn').classList.add('mic-active');
+        document.getElementById('voiceStatus').classList.remove('hidden');
+      };
+      recognition.onresult = (e) => {
+        const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+        document.getElementById('userInput').value = transcript;
+        autoResize(document.getElementById('userInput'));
+      };
+      recognition.onend = () => {
+        isListening = false;
+        document.getElementById('micBtn').classList.remove('mic-active');
+        document.getElementById('voiceStatus').classList.add('hidden');
+      };
+      recognition.onerror = (e) => {
+        isListening = false;
+        document.getElementById('micBtn').classList.remove('mic-active');
+        document.getElementById('voiceStatus').classList.add('hidden');
+      };
+      recognition.start();
+    }
+
+    /* ─── SKIP ─── */
+    async function handleSave() {
+      sessionStorage.setItem('pathpm_convo', JSON.stringify(convoHistory));
+
+      // Save progress to Supabase
+      const currentUser = await getCurrentUser();
+      if (currentUser) {
+        const baseScore = parseInt(sessionStorage.getItem('pathpm_score') || '62');
+        await sb.from('ai_conversations').insert({
+          user_id:         currentUser.id,
+          role_key:        role,
+          messages:        convoHistory,
+          questions_asked: convoHistory.length,
+          completed:       false,
+          score_after:     baseScore,
+          completed_at:    new Date().toISOString()
+        }).then(() => {});   // fire-and-forget
+      }
+
+      showConvoToast('Progress saved!');
+    }
+
+    function showConvoToast(msg) {
+      const toast = document.getElementById('convoToast');
+      if (!toast) return;
+      toast.querySelector('.toast-msg-text').textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2500);
+    }
+
+    /* ─── STARTER CHIPS ─── */
+    const STARTERS = {
+      'Problem framing':              ["I'd start by looking at data on...", "My diagnostic approach would be...", "I'd separate symptoms from root causes by...", "The first question I'd ask is..."],
+      'Experiment design':            ["My hypothesis is...", "I'd run an A/B test where...", "Success for me means...", "The metric I'd watch is..."],
+      'Trade-off decisions':          ["The key trade-off here is...", "I'd weigh this by...", "My recommendation would be...", "I'd prioritise X over Y because..."],
+      'Prioritisation':               ["I'd use RICE/ICE to score...", "My top pick would be...", "I'd deprioritise X because...", "The highest-leverage move is..."],
+      'Stakeholder alignment':        ["I'd start by mapping stakeholders...", "My approach to resistance would be...", "The first conversation I'd have is with...", "I'd build alignment by..."],
+      'Migration strategy':           ["I'd phase it as...", "For teams that can't migrate, I'd...", "My exception policy would be...", "The hard stop I'd set is..."],
+      'Risk management':              ["The top risks I see are...", "My mitigation plan would be...", "I'd identify risks early by...", "The biggest blocker is..."],
+      'Success definition':           ["I'd measure success as...", "My north star metric would be...", "Done for me means...", "I'd track leading indicators like..."],
+      'Platform design thinking':     ["I'd choose the foundation based on...", "The build vs buy decision comes down to...", "My consolidation approach would be...", "The stakeholders in this decision are..."],
+      'Internal customer management': ["I'd approach that engineer by...", "My strategy for resistance is...", "I'd turn this around by...", "The first thing I'd do is..."],
+      'Adoption strategy':            ["My migration playbook would be...", "I'd sequence the teams by...", "If a team stalls, I'd...", "The support I'd offer is..."],
+      'Measuring platform success':   ["6 months later, I'd look at...", "Genuine adoption means...", "The metric that tells me it's working is...", "I'd define success as..."],
+      'ML success metrics':           ["The online metrics I'd track are...", "Offline metrics don't tell me...", "I'd set up evaluation by...", "My primary metric would be..."],
+      'Rollout strategy':             ["I'd phase it 1% → 5% → 20% → 100%...", "Each phase gates on...", "I'd roll back if...", "The first cohort would be..."],
+      'Accuracy vs latency':          ["The 340ms cost matters because...", "I'd justify the latency hit if...", "To get both, I'd explore...", "My recommendation is..."],
+      'AI ethics & trust':            ["I'd get ahead of the 'creepy' concern by...", "User trust here means...", "Before launch, I'd...", "Transparency in this context means..."],
+      'Metric definition':            ["The fragmentation happened because...", "The right definition should...", "I'd propose it as...", "I'd get buy-in by..."],
+      'Data governance':              ["To prevent this from recurring, I'd...", "The owner should be...", "My governance process would be...", "The tooling I'd put in place is..."],
+      'Cross-team alignment':         ["I'd approach the resistant team by...", "If they refuse, I'd...", "My alignment strategy is...", "I'd make the case by..."],
+      'Change management':            ["Right now, I'd stop the bleeding by...", "The 2-week fix would be...", "My rollout plan is...", "I'd avoid breaking live reports by..."],
+      'Roadmap from scratch':         ["My first 3 days would be...", "I'd categorise the backlog by...", "The Q2 plan would include...", "The first question I'd ask is..."],
+      'Prioritisation under pressure':["I'd use [framework] to decide...", "My top pick this quarter is...", "I'd communicate the trade-off by...", "The stakeholder I'd push back on is..."],
+      'Stakeholder management':       ["I'd establish credibility by...", "My first 30 days would focus on...", "I'd handle the power dynamic by...", "The first relationship I'd build is..."],
+      'Defining success':             ["My north star metric would be...", "I'd set OKRs as...", "To get team alignment, I'd...", "Q2 done means..."],
+      'Personal experience':          ["In my previous role...", "The closest thing I've worked on is...", "From what I've seen...", "One example from my background is..."],
+      'Personal ML exposure':         ["I've worked with data/ML teams when...", "From what I observed...", "My exposure to this has been...", "One thing I noticed is..."],
+      'Personal data experience':     ["I've worked with data/dashboards when...", "From what I observed...", "The challenge I saw was...", "One thing I learned is..."],
+      'Personal experience with ambiguity': ["I've created structure in chaos when...", "The approach I took was...", "What worked was...", "What I'd do differently is..."],
+      'Self-awareness & growth mindset':    ["The area furthest from my comfort zone is...", "My concrete plan to close that gap is...", "I'd get there by...", "I'm working on..."],
+      'Self-awareness & role readiness':    ["The hardest relationship for me would be...", "My biggest gap is...", "I'd prepare for that by...", "I'm most uncertain about..."],
+      'Role fit & self-awareness':          ["This appeals to me because...", "I think I'd thrive here because...", "The part I'm less certain about is...", "My plan to get there is..."],
+      'Role fit & governance mindset':      ["I'm comfortable playing gatekeeper because...", "The challenge would be...", "I'd handle a senior push-back by...", "My approach would be..."],
+      'Ambiguity tolerance & mindset':      ["When the system can't give certainty, I'd...", "I'd set stakeholder expectations by...", "My decision-making approach is...", "I'd communicate uncertainty by..."],
+    };
+    const DEFAULT_STARTERS = ["My approach would be...", "I'd start by...", "The key consideration here is...", "From my experience..."];
+    let _activeChips = [];
+
+    function showStarterChips(probe) {
+      _activeChips = STARTERS[probe] || DEFAULT_STARTERS;
+      const container = document.getElementById('starterChips');
+      container.innerHTML = _activeChips.map((c, i) =>
+        `<button class="starter-chip" onclick="pickStarter(${i})">${c}</button>`
+      ).join('');
+      container.classList.remove('hidden');
+    }
+
+    function hideStarterChips() {
+      document.getElementById('starterChips').classList.add('hidden');
+    }
+
+    function pickStarter(i) {
+      const text = _activeChips[i];
+      if (!text) return;
+      const input = document.getElementById('userInput');
+      input.value = text;
+      input.focus();
+      input.selectionStart = input.selectionEnd = text.length;
+      autoResize(input);
+      hideStarterChips();
+    }
+
+    /* ─── FRAMEWORK HINTS ─── */
+    const HINTS = {
+      'Problem framing':              'Use 5 Whys or a diagnostic tree. Start with the symptom → hypothesise root causes → find the data that distinguishes them. Don\'t jump to solutions.',
+      'Experiment design':            'State your hypothesis → pick one primary metric → define control vs variant → set sample size and runtime → agree on success threshold before you start.',
+      'Trade-off decisions':          'Name the trade-off clearly. Quantify both sides if possible. Pick the option with better unit economics or strategic fit. State what you\'d monitor to know if you\'re wrong.',
+      'Prioritisation':               'Use RICE (Reach × Impact × Confidence ÷ Effort) or ICE. List options, score each, defend your top pick. Show your reasoning, not just the answer.',
+      'Stakeholder alignment':        'Map stakeholders by influence and interest. Start with the most influential sceptic. Find a shared goal — then position your ask around that.',
+      'Migration strategy':           'Phase by risk — easiest teams first to build momentum. Set a hard stop with a legitimate but narrow exception process. Communicate weekly.',
+      'Risk management':              'List risks by probability × impact. Actively mitigate the top 2–3 before they happen. Build a rollback plan for the rest.',
+      'Success definition':           'Define leading indicators (weekly early signals) AND lagging indicators (monthly outcomes). Agree on both before the project starts.',
+      'Platform design thinking':     'Build vs buy vs consolidate: weigh total cost of ownership, team adoption friction, and long-term maintenance. Who needs to be in the decision matters as much as the decision itself.',
+      'Internal customer management': 'Resistance usually means a perceived threat — to autonomy, quality, or workload. Diagnose which one it is. Then find a way to protect what they care about while moving forward.',
+      'Adoption strategy':            'Good adoption strategies reduce friction AND provide support. Sequence teams by dependency and risk. Make it easier to migrate than to stay behind.',
+      'Measuring platform success':   'Track adoption breadth (# teams), adoption depth (% of their traffic), and support load (# escalations). Falling support tickets + high usage = genuine adoption.',
+      'ML success metrics':           'Offline metrics (precision, recall) ≠ online metrics (CTR, revenue, retention). Pick 1 primary online metric and 2 guardrail metrics that must not regress.',
+      'Rollout strategy':             'Phased rollout: 1% → 5% → 20% → 100%. Gate each phase on: no regressions, guardrail metrics stable, support volume normal. Always have a one-click rollback.',
+      'Accuracy vs latency':          'Quantify the latency impact on conversion (every 100ms matters). Then quantify the lift from recommendations. If lift > latency cost, ship it — but try to close the gap too.',
+      'AI ethics & trust':            'Think explainability, user control, and opt-out. "Why am I seeing this?" should have a short, honest answer. Build that transparency before launch, not in a PR response.',
+      'Metric definition':            'A good metric definition is unambiguous, owned, and agreed upon. Start with the business question it answers, then work backwards to the calculation.',
+      'Data governance':              'Governance that works: one owner, documented definitions, a change process, and tooling enforcement. Without tooling, it decays. Without ownership, nothing gets fixed.',
+      'Cross-team alignment':         'When a team resists: find out why. Is it fear, workload, or principle? Address the real reason. Mandates without buy-in create shadow solutions.',
+      'Change management':            'Stop the bleeding first (temporary fix or communication). Then plan the migration. Never roll out a metric change silently — announce it, show the old vs new side by side.',
+      'Roadmap from scratch':         'First 3 days: talk to engineering, sales, support, and 3 users. Categorise the backlog: bugs / growth / retention / tech debt. Then pick one theme to own in Q2.',
+      'Prioritisation under pressure': 'When everyone is shouting: go back to the north star. Which option moves the metric that the business most needs to move right now? That\'s your answer — communicate the others clearly.',
+      'Stakeholder management':       'First 30 days: listen more than you decide. Build 1-on-1 trust with engineering lead and CEO. Make one small, visible call well — that earns you the right to make bigger ones.',
+      'Defining success':             'North Star metric = the one number that best represents value delivered to users. OKRs = 3 outcomes that would move the North Star this quarter. Keep it short.',
+      'Personal experience':          'Be specific. Name the situation, your actual role in it, the decision you made, and what you learned from the outcome. Specificity is what separates a real answer from a generic one.',
+      'Self-awareness & growth mindset': 'Be honest, not just humble. Name the real gap. Explain why it\'s a gap for you specifically. Then give a concrete plan — not a vague intention like "I\'ll read more about it."',
+      'Self-awareness & role readiness': 'Interviewers want to see self-awareness + agency. Acknowledge the challenge honestly, then show what you\'re actively doing to close the gap.',
+    };
+    const DEFAULT_HINT = 'Structure your answer: situation → your reasoning → the decision you\'d make → how you\'d measure if it worked.';
+
+    function showFrameworkHint(probe, questionText) {
+      // Don't show hints for closing/personal questions if they're simple
+      const hint = HINTS[probe] || DEFAULT_HINT;
+      const w = document.getElementById('chatWindow');
+      const hintWrap = document.createElement('div');
+      hintWrap.className = 'framework-hint-wrap';
+      hintWrap.innerHTML = `
+        <span class="framework-hint-toggle" onclick="toggleHint(this)">
+          💡 How to structure your answer
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="transition:transform 0.2s"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <div class="framework-hint-body">${hint}</div>`;
+      w.appendChild(hintWrap);
+      scrollToBottom();
+    }
+
+    function toggleHint(toggle) {
+      const body = toggle.nextElementSibling;
+      const arrow = toggle.querySelector('svg');
+      body.classList.toggle('open');
+      arrow.style.transform = body.classList.contains('open') ? 'rotate(180deg)' : '';
+    }
+
+    /* ─── INIT ─── */
+    updateProgress();
+    askQuestion(0, 800);
+  </script>
+
+  <div class="toast hidden" id="convoToast"><span class="toast-icon">✓</span><span class="toast-msg-text">Progress saved!</span></div>
+</body>
+</html>

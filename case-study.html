@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPM – Case Study</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <style>
+    .cs-page { background: #f4f7f5; min-height: 100vh; }
+
+    .cs-main {
+      max-width: 780px; margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    .cs-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #f0fdf4; color: var(--green);
+      border: 1px solid #bbf7d0;
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;
+      padding: 4px 12px; border-radius: 20px; margin-bottom: 20px;
+    }
+
+    .cs-heading {
+      font-size: 1.8rem; font-weight: 800; color: var(--dark);
+      line-height: 1.25; margin-bottom: 8px;
+    }
+
+    .cs-meta {
+      font-size: 0.85rem; color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+
+    .cs-card {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 16px; padding: 36px;
+      margin-bottom: 24px;
+    }
+
+    .cs-card-label {
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .cs-scenario {
+      font-size: 0.95rem; line-height: 1.8; color: #374151;
+    }
+
+    .cs-scenario p { margin-bottom: 14px; }
+    .cs-scenario p:last-child { margin-bottom: 0; }
+
+    .cs-highlight {
+      background: #f0fdf4; border-left: 3px solid var(--green);
+      border-radius: 0 8px 8px 0; padding: 14px 18px;
+      font-size: 0.88rem; color: #065f46; margin-top: 20px; line-height: 1.6;
+    }
+
+    .cs-what-section { margin-bottom: 24px; }
+
+    .cs-what-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+    }
+
+    .cs-what-item {
+      display: flex; gap: 10px; align-items: flex-start;
+      background: var(--light-bg); border-radius: 10px; padding: 14px;
+    }
+
+    .cs-what-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+
+    .cs-what-title { font-size: 0.85rem; font-weight: 600; color: var(--dark); margin-bottom: 3px; }
+    .cs-what-desc  { font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
+
+    .cs-cta {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 10px; margin-top: 8px;
+    }
+
+    .cs-cta .btn-primary {
+      padding: 16px 48px; font-size: 1rem; border-radius: 10px;
+    }
+
+    .cs-cta-note { font-size: 0.8rem; color: var(--text-muted); }
+
+    .cs-tip {
+      background: #fffbeb; border: 1px solid #fde68a;
+      border-radius: 10px; padding: 14px 18px;
+      font-size: 0.82rem; color: #78350f; line-height: 1.6;
+      margin-bottom: 24px;
+    }
+  </style>
+</head>
+<body class="cs-page">
+
+  <nav class="onboarding-nav role-nav">
+    <a href="dashboard.html" class="logo on-logo"><span class="logo-dot"></span> PathPM</a>
+    <div class="stepper">
+      <div class="step done-step"><span class="step-bubble done-bubble">✓</span><span class="step-name muted">Resume Parsed</span></div>
+      <div class="step-line filled"></div>
+      <div class="step done-step"><span class="step-bubble done-bubble">✓</span><span class="step-name muted">Choose Role</span></div>
+      <div class="step-line filled"></div>
+      <div class="step done-step"><span class="step-bubble done-bubble">✓</span><span class="step-name muted">MCQ</span></div>
+      <div class="step-line filled"></div>
+      <div class="step active"><span class="step-bubble active pulse">4</span><span class="step-name">Case Study</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="save-exit-btn" onclick="saveProgress()">Save</button>
+      <button class="signout-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </nav>
+
+  <div class="assessment-layout">
+
+  <!-- LEFT PANEL -->
+  <aside class="side-panel">
+    <div class="sp-profile">
+      <div class="sp-avatar" id="spAvatar">—</div>
+      <div class="sp-name" id="spName">—</div>
+      <div class="sp-role-badge" id="spRoleBadge">PM</div>
+    </div>
+    <div class="sp-score-block">
+      <div class="sp-score-label">RESUME MATCH</div>
+      <div class="sp-score-row">
+        <span class="sp-score-num" id="spScore">—</span>
+        <span class="sp-score-sub">/ 100</span>
+      </div>
+      <div class="sp-score-bar"><div class="sp-bar-fill" id="spBarFill"></div></div>
+    </div>
+    <div class="sp-gap-section">
+      <div class="sp-gap-title">✅ YOU HAVE</div>
+      <div class="sp-gap-chips" id="spHave"></div>
+    </div>
+    <div class="sp-gap-section">
+      <div class="sp-gap-title">📚 TO DEVELOP</div>
+      <div class="sp-gap-chips" id="spMissing"></div>
+    </div>
+  </aside>
+
+  <!-- RIGHT CONTENT -->
+  <div class="side-content" style="overflow-y:auto;">
+  <main class="cs-main">
+
+    <div class="cs-badge" id="csBadge">📋 Growth PM · Case Study</div>
+    <h1 class="cs-heading" id="csHeading">Loading case study…</h1>
+    <p class="cs-meta" id="csMeta">Read carefully — the AI will ask you questions based on this scenario.</p>
+
+    <!-- SCENARIO CARD -->
+    <div class="cs-card">
+      <p class="cs-card-label">The Scenario</p>
+      <div class="cs-scenario" id="csScenario"></div>
+    </div>
+
+    <!-- WHAT AI WILL COVER -->
+    <div class="cs-what-section">
+      <p style="font-size:0.78rem;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:12px;">WHAT THE AI WILL DISCUSS WITH YOU</p>
+      <div class="cs-what-grid" id="csWhatGrid"></div>
+    </div>
+
+    <!-- TIP -->
+    <div class="cs-tip">
+      💡 <strong>Tip:</strong> Think out loud in your responses. There are no perfect answers — the AI is evaluating your <em>thinking process</em>, how you structure ambiguous problems, and how you prioritise.
+    </div>
+
+    <!-- CTA -->
+    <div class="cs-cta">
+      <button class="btn-primary" onclick="startDiscussion()">Start AI Discussion &nbsp;→</button>
+      <p class="cs-cta-note">~8 minutes &nbsp;·&nbsp; Conversational &nbsp;·&nbsp; No right or wrong answers</p>
+    </div>
+
+  </main>
+  <div class="role-footer">
+    <a href="mcq.html" class="btn-back">← Back</a>
+  </div>
+  </div><!-- end side-content -->
+  </div><!-- end assessment-layout -->
+
+  <script>
+    // ── Side panel ───────────────────────────────────────────────
+    (function() {
+      const rd  = JSON.parse(sessionStorage.getItem('pathpm_resume_data') || '{}');
+      const sg  = JSON.parse(sessionStorage.getItem('pathpm_skill_gap')   || '{}');
+      const usr = JSON.parse(sessionStorage.getItem('pathpm_user')        || '{}');
+      const sc  = sessionStorage.getItem('pathpm_score') || '—';
+      const name = rd.name || usr.name || 'You';
+      document.getElementById('spAvatar').textContent    = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+      document.getElementById('spName').textContent      = name;
+      document.getElementById('spRoleBadge').textContent = 'Target: ' + (sessionStorage.getItem('pathpm_role_label') || 'PM');
+      document.getElementById('spScore').textContent     = sc;
+      setTimeout(() => { document.getElementById('spBarFill').style.width = sc + '%'; }, 300);
+      const have    = sg.have    || [];
+      const missing = sg.missing || [];
+      document.getElementById('spHave').innerHTML    = have.length    ? have.map(s=>`<span class="gap-chip gap-have">${s}</span>`).join('')    : '<span class="sp-empty">—</span>';
+      document.getElementById('spMissing').innerHTML = missing.length ? missing.map(s=>`<span class="gap-chip gap-miss">${s}</span>`).join('') : '<span class="sp-empty">—</span>';
+    })();
+
+    const CASE_STUDIES = {
+      growth: {
+        title: 'Activation Drop at a Food-Delivery Super App',
+        meta:  'Company: Series C food delivery startup · Team: Growth PM',
+        scenario: `
+          <p>Swiggy-like super app launches in 3 new tier-2 cities. Data shows new users who place their first order within 24 hours of signup have <strong>3× higher 90-day retention</strong> than those who don't. Yet only <strong>31% of new signups</strong> place an order within that window.</p>
+          <p>Your growth team has a hypothesis that the issue is in the onboarding flow — users are dropping off between "restaurant discovery" and "checkout." The engineering team says they can ship one experiment per sprint.</p>
+          <p>Marketing wants to run a ₹50 discount coupon campaign to boost the number. Finance says discounts are burning 22% of gross margin on first orders already.</p>
+          <div class="cs-highlight">🎯 <strong>Your challenge:</strong> Define the problem clearly, identify the highest-leverage intervention, and build a prioritised experiment roadmap — without blowing the margin budget.</div>`,
+        topics: [
+          { icon: '📊', title: 'Problem framing', desc: 'How you diagnose the root cause vs treating symptoms',
+            question: 'Only 31% of new users place a first order within 24 hours — but your team does not know exactly where they are dropping off. How would you figure out whether the real problem is in restaurant discovery, the menu, cart, or checkout? Walk me through your diagnostic approach step by step.' },
+          { icon: '🧪', title: 'Experiment design', desc: 'How you structure A/B tests and define success metrics',
+            question: 'You can only ship one experiment per sprint. You are considering: simplifying restaurant discovery, a push notification 2 hours after signup, showing "popular near you" by default, reducing checkout from 4 steps to 2, or a first-order discount. How would you structure an A/B test for your top pick — and what does success look like before you even start?' },
+          { icon: '⚖️', title: 'Trade-off decisions', desc: 'Discounts vs retention vs margin — how you balance',
+            question: 'Marketing wants to push the 31% number up with discount coupons. Finance says discounts are already burning 22% of gross margin on first orders. How do you decide whether discounts are the right lever here — or whether there is a better approach that does not erode margin further?' },
+          { icon: '🗺️', title: 'Prioritisation', desc: 'How you rank experiments given one-sprint constraints',
+            question: 'You have a backlog of possible interventions but only one sprint to ship an experiment. Walk me through the prioritisation framework you would use — and tell me which experiment you would run first and why.' },
+        ],
+        closingQuestions: [
+          { question: 'From your own experience — have you ever worked on improving a conversion funnel or owned a growth metric, even informally? What was your approach and what did you learn from it?', probe: 'Personal experience' },
+          { question: 'Growth PMs operate at the intersection of data, engineering, and marketing. Which of those three feels furthest from your comfort zone right now — and what is your concrete plan to close that gap?', probe: 'Self-awareness & growth mindset' },
+        ]
+      },
+      technical: {
+        title: 'Deprecating a Legacy API Used by 47 Teams',
+        meta:  'Company: Large fintech platform · Team: Technical PM',
+        scenario: `
+          <p>Your platform has a legacy REST API (v1) that was built 4 years ago. It handles <strong>authentication + permissions</strong> and is used by 47 internal teams across the company. The new API (v2) has been available for 8 months, but only 9 teams have migrated.</p>
+          <p>The infra team says maintaining v1 costs ~₹14L/month in infra and engineer-hours. Leadership wants v1 fully deprecated in 90 days. Some teams say migration will break their workflows. One team (payments) says they can't migrate without a 6-week engineering sprint they haven't budgeted.</p>
+          <div class="cs-highlight">🎯 <strong>Your challenge:</strong> Own this migration as Technical PM. How do you get 38 teams migrated in 90 days without breaking production and without creating enemies?</div>`,
+        topics: [
+          { icon: '🤝', title: 'Stakeholder alignment', desc: 'How you manage 47 teams with conflicting priorities',
+            question: 'You have 47 internal teams with different priorities, timelines, and resources — and only 9 have migrated in 8 months. What is your strategy to get the remaining 38 teams aligned and actively moving on this migration without creating resentment or passive resistance?' },
+          { icon: '📋', title: 'Migration strategy', desc: 'Phased approach, exceptions, hard stops',
+            question: 'Walk me through your phased migration strategy. The payments team says they need a 6-week sprint they have not budgeted. Do you grant them an exception, hold the hard stop, or find a third path? How do you think about making exceptions without setting a precedent that derails the whole plan?' },
+          { icon: '⚠️', title: 'Risk management', desc: 'How you handle teams that can\'t migrate in time',
+            question: 'What are the top risks that could cause this migration to fail — especially for teams that genuinely cannot migrate within 90 days? How do you identify those risks early and build mitigation into your plan before they become production incidents?' },
+          { icon: '📏', title: 'Success definition', desc: 'How you measure progress and communicate upward',
+            question: 'How do you define "done" for this deprecation project? What does your progress dashboard look like the week before you shut down v1 — and how do you communicate status to leadership weekly without creating alarm?' },
+        ],
+        closingQuestions: [
+          { question: 'From your background — have you ever been involved in a technical migration, system transition, or deprecation project? Even a small one. What made it harder than expected?', probe: 'Personal experience' },
+          { question: 'Technical PMs need to be the bridge between engineering and business stakeholders. Where do you feel you need to grow most right now — deeper technical depth, or stronger business communication?', probe: 'Self-awareness & role readiness' },
+        ]
+      },
+      platform: {
+        title: 'Consolidating 3 Auth Modules into One Platform',
+        meta:  'Company: Mid-size B2B SaaS · Team: Platform PM',
+        scenario: `
+          <p>Three product teams at your company independently built their own authentication and user-management modules over the past 18 months. Each solves the same problem differently. Combined, they account for <strong>23% of all production incidents</strong> and consume significant engineering maintenance time.</p>
+          <p>Leadership wants a single shared auth platform. One team's module is more advanced but poorly documented. Another team's lead engineer says adopting someone else's module is "not acceptable." The third team ships to enterprise customers with strict SLA requirements.</p>
+          <div class="cs-highlight">🎯 <strong>Your challenge:</strong> You're the Platform PM. Design a consolidation strategy that gets all three teams onto one shared platform — without breaking enterprise SLAs or triggering an engineering revolt.</div>`,
+        topics: [
+          { icon: '🏗️', title: 'Platform design thinking', desc: 'Build vs buy vs consolidate decisions',
+            question: 'You have three existing auth modules — the most advanced is poorly documented, the simplest is well-liked, the third serves enterprise customers with strict SLAs. How do you decide which becomes the foundation? Walk me through your build vs buy vs consolidate reasoning — and who needs to be in the room when that decision gets made.' },
+          { icon: '👥', title: 'Internal customer management', desc: 'How you handle resistant engineering teams',
+            question: 'One engineering lead says adopting someone else\'s module is "not acceptable." This person has influence on their team and could stall the whole consolidation. How do you approach that conversation — and what is your strategy for turning a resistant internal team into a willing participant?' },
+          { icon: '📐', title: 'Adoption strategy', desc: 'How you get teams to migrate to a shared service',
+            question: 'What does your migration playbook look like for moving three teams onto one shared platform? How do you sequence the migration, what support or incentives do you provide, and what happens if a team stalls midway through?' },
+          { icon: '📊', title: 'Measuring platform success', desc: 'What does "platform PM done right" look like?',
+            question: 'What does "platform PM done right" look like 6 months after consolidation? What metrics tell you the platform is genuinely adopted — and not just grudgingly tolerated or quietly being worked around by teams who built shadow solutions?' },
+        ],
+        closingQuestions: [
+          { question: 'From your experience — have you ever built something that other people inside your organisation depended on, or served as an internal service provider? What was the hardest part of serving internal customers?', probe: 'Personal experience' },
+          { question: 'Platform PM is less visible than consumer-facing PM — you are serving internal teams, not end users. Does that dynamic appeal to you, and do you think you would thrive in that kind of role?', probe: 'Role fit & self-awareness' },
+        ]
+      },
+      aiml: {
+        title: 'Launching an AI Recommendation Engine — Defining Success',
+        meta:  'Company: Series B e-commerce startup · Team: AI/ML PM',
+        scenario: `
+          <p>Your data science team has built a product recommendation model trained on 8 months of purchase data. Offline evaluation shows <strong>78% precision@10</strong>. The CEO wants to ship it to 100% of users in Q3 as a "growth unlock."</p>
+          <p>The DS team is unsure what production success looks like. The engineering team flagged latency concerns — the model adds 340ms to page load. Customer support reports that similar features at a competitor "felt creepy" to users. The business team wants to attribute all GMV uplift to this feature.</p>
+          <div class="cs-highlight">🎯 <strong>Your challenge:</strong> Own the launch as AI/ML PM. Define success metrics, build the rollout plan, resolve the latency vs accuracy trade-off, and address the "creepy AI" concern before it becomes a PR issue.</div>`,
+        topics: [
+          { icon: '🎯', title: 'ML success metrics', desc: 'Offline vs online metrics — what actually matters in production',
+            question: 'The DS team has 78% precision@10 in offline evaluation — but offline metrics do not always predict production success. What online metrics would you define to know if this model is actually working for real users? And how would you set up the evaluation so you are measuring the right things from day one?' },
+          { icon: '🚀', title: 'Rollout strategy', desc: 'How you phase a model launch safely',
+            question: 'The CEO wants to ship to 100% of users in Q3. How do you phase this launch safely — what does each stage of your rollout plan look like, what does each phase gate on, and at what point would you halt and roll back?' },
+          { icon: '⚖️', title: 'Accuracy vs latency', desc: 'Real trade-off decisions in AI product development',
+            question: 'The model adds 340ms to page load — that is a real UX cost that could hurt conversion. How do you decide whether the recommendation lift justifies the latency hit? Is there a way to get both, or is this a genuine trade-off you have to make a call on?' },
+          { icon: '🛡️', title: 'AI ethics & trust', desc: 'How you handle user perception and responsible AI',
+            question: 'Customer support flagged that a similar recommendation feature at a competitor felt "creepy" to users. How do you get ahead of the trust and perception problem — before the launch, not after a PR issue forces you to react?' },
+        ],
+        closingQuestions: [
+          { question: 'From your experience — have you worked with data science or ML teams, even peripherally? What did you observe about how they think compared to how product or business teams think?', probe: 'Personal ML exposure' },
+          { question: 'AI/ML PM requires comfort with inherent uncertainty — models are probabilistic, outputs are not guaranteed. How do you make product decisions and set expectations with stakeholders when the underlying system cannot give you certainty?', probe: 'Ambiguity tolerance & mindset' },
+        ]
+      },
+      data: {
+        title: '"Active Users" Means 6 Different Things — Fix It',
+        meta:  'Company: 200-person SaaS company · Team: Data PM',
+        scenario: `
+          <p>Leadership is preparing for a board meeting. The finance team's dashboard shows 12,400 "active users." The product dashboard shows 9,800. The growth team's report says 14,100. Sales is quoting 11,200. All use the same term — "active users" — defined differently.</p>
+          <p>The CEO is embarrassed in a board pre-call. She tasks you — the Data PM — with fixing this permanently. The BI team says standardisation will require touching 6 dashboards, 12 pipelines, and 3 data warehouse tables. Engineering estimates 6 weeks of work.</p>
+          <div class="cs-highlight">🎯 <strong>Your challenge:</strong> How do you define the single source of truth for "active users," get 5 teams aligned on one definition, and prevent metric fragmentation from happening again?</div>`,
+        topics: [
+          { icon: '📏', title: 'Metric definition', desc: 'How you drive alignment on a contested business metric',
+            question: 'Five teams are each using "active users" to mean something different. Before proposing a single definition — how do you diagnose why the fragmentation happened in the first place? And what makes one definition "right" over another when every team has a legitimate reason for their version?' },
+          { icon: '🏛️', title: 'Data governance', desc: 'How you build processes to prevent fragmentation',
+            question: 'Once you have defined the single source of truth, how do you prevent metric fragmentation from happening again 6 months later? What governance process, tooling, or organisational change do you put in place — and who owns it going forward?' },
+          { icon: '🤝', title: 'Cross-team alignment', desc: 'Getting 5 teams to give up their own definitions',
+            question: 'Finance, product, growth, sales, and BI all have a metric definition they have been optimising for. Getting them to give up their own definition and accept one they did not create is a real challenge. How do you approach this — and what do you do when one team flat-out refuses?' },
+          { icon: '🔄', title: 'Change management', desc: 'Rolling out a new metric without disrupting reports',
+            question: 'Engineering says the full fix is 6 weeks of work. The board meeting is in 2 weeks. What do you do right now to stop the bleeding — and how do you roll out the new standardised metric across 6 dashboards and 12 pipelines without breaking live reports that people depend on daily?' },
+        ],
+        closingQuestions: [
+          { question: 'From your experience — have you ever worked with data, dashboards, or reporting in a professional or academic context? What made data hard to trust or act on in that environment?', probe: 'Personal data experience' },
+          { question: 'Data PMs often need to say "no" to one-off metric requests to protect data integrity. How comfortable are you playing that gatekeeper role — especially when the person asking is more senior than you?', probe: 'Role fit & governance mindset' },
+        ]
+      },
+      generalist: {
+        title: 'First PM at a Series B Startup — Building from Zero',
+        meta:  'Company: Series B B2C startup · Team: First dedicated PM',
+        scenario: `
+          <p>You've just joined a Series B startup as their first dedicated Product Manager. The product has 50,000 MAUs, growing 15% month-over-month. There is no formal roadmap, no OKRs, and a Jira backlog with 230+ tickets — a mix of bug reports, feature requests from sales, complaints from support, and engineering tech debt.</p>
+          <p>The CEO wants a Q2 product plan in 2 weeks. The head of engineering has a strong opinion on what to build. Sales says without feature X, they'll lose 3 enterprise deals. Support says the top 5 bugs are killing NPS. Users are asking for mobile improvements.</p>
+          <div class="cs-highlight">🎯 <strong>Your challenge:</strong> As the first PM, how do you create structure from chaos, make your first prioritisation call, and build credibility with engineering, sales, and the CEO — all in your first 30 days?</div>`,
+        topics: [
+          { icon: '🗺️', title: 'Roadmap from scratch', desc: 'How you build a roadmap when nothing exists',
+            question: 'You inherit 230+ Jira tickets with no roadmap, no OKRs, and no strategy. The CEO wants a Q2 product plan in 2 weeks. How do you build a roadmap from zero — what are your first 3 days, and what does the deliverable you hand to the CEO actually look like?' },
+          { icon: '⚖️', title: 'Prioritisation under pressure', desc: 'Sales vs bugs vs tech debt — your framework',
+            question: 'Sales says you will lose 3 enterprise deals without feature X. Engineering wants to pay down tech debt. Support says bugs are killing NPS. Users want mobile improvements. You can only focus on one area this quarter. Walk me through the framework you would use to make this call — and how do you communicate the decision to stakeholders who do not get what they want?' },
+          { icon: '🤝', title: 'Stakeholder management', desc: 'Managing up, down, and across when everyone has opinions',
+            question: 'You are the first PM, which means everyone has been playing PM until now — the CEO, the eng lead, sales. How do you establish credibility and take ownership of product decisions without stepping on toes or triggering a power struggle in your first 30 days?' },
+          { icon: '📊', title: 'Defining success', desc: 'How you set OKRs and metrics when there are none',
+            question: 'The product has 50K MAUs and 15% month-over-month growth but no metrics framework. How would you define a North Star metric and set OKRs for Q2 — and how do you get the team aligned on metrics they have not previously agreed to measure?' },
+        ],
+        closingQuestions: [
+          { question: 'From your background — have you ever had to create structure or process in a chaotic, ambiguous environment? What did you do, what worked, and what broke?', probe: 'Personal experience with ambiguity' },
+          { question: 'Generalist PMs need to be credible with engineers, designers, and business stakeholders at the same time. Which of those three relationships do you think will be hardest for you — and why?', probe: 'Self-awareness & role readiness' },
+        ]
+      },
+    };
+
+    const role = sessionStorage.getItem('pathpm_role') || 'growth';
+    const roleLabels = { growth: 'Growth PM', technical: 'Technical PM', platform: 'Platform PM', aiml: 'AI/ML PM', data: 'Data PM', generalist: 'Generalist PM' };
+    const cs = CASE_STUDIES[role] || CASE_STUDIES.growth;
+
+    // Populate page
+    document.getElementById('csBadge').textContent    = `📋 ${roleLabels[role]} · Case Study`;
+    document.getElementById('csHeading').textContent  = cs.title;
+    document.getElementById('csMeta').textContent     = cs.meta + ' · Read carefully — the AI will ask you questions based on this.';
+    document.getElementById('csScenario').innerHTML   = cs.scenario;
+    document.getElementById('csWhatGrid').innerHTML   = cs.topics.map(t => `
+      <div class="cs-what-item">
+        <div class="cs-what-icon">${t.icon}</div>
+        <div>
+          <div class="cs-what-title">${t.title}</div>
+          <div class="cs-what-desc">${t.desc}</div>
+        </div>
+      </div>`).join('');
+
+    // Save case study context for conversation.html
+    const caseQuestions = [
+      ...cs.topics.map(t => ({ text: t.question, probe: t.title })),
+      ...(cs.closingQuestions || []).map(q => ({ text: q.question, probe: q.probe }))
+    ];
+    sessionStorage.setItem('pathpm_case_study', JSON.stringify({
+      role, title: cs.title, topics: cs.topics.map(t => t.title),
+      questions: caseQuestions
+    }));
+
+    function startDiscussion() {
+      window.location.href = 'conversation.html';
+    }
+
+    function saveProgress() {
+      showToast('Progress saved!');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2500);
+    }
+  </script>
+
+  <div class="toast hidden" id="toast"><span class="toast-icon">✓</span><span id="toast-msg">Progress saved!</span></div>
+</body>
+</html>

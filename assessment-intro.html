@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPM – Assessment Overview</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+</head>
+<body class="onboarding-page">
+
+  <!-- NAV -->
+  <nav class="onboarding-nav role-nav">
+    <a href="index.html" class="logo on-logo"><span class="logo-dot"></span> PathPM</a>
+    <div class="stepper">
+      <div class="step done-step">
+        <span class="step-bubble done-bubble">✓</span>
+        <span class="step-name muted">Resume Parsed</span>
+      </div>
+      <div class="step-line filled"></div>
+      <div class="step done-step">
+        <span class="step-bubble done-bubble">✓</span>
+        <span class="step-name muted">Choose Role</span>
+      </div>
+      <div class="step-line filled"></div>
+      <div class="step active">
+        <span class="step-bubble active">3</span>
+        <span class="step-name">Assessment</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="save-exit-btn" onclick="saveProgress()">Save</button>
+      <button class="signout-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="intro-main">
+    <div class="intro-card">
+
+      <div class="intro-icon">🧠</div>
+      <p class="intro-eyebrow">YOUR INITIAL READING</p>
+      <h2 class="intro-heading" id="introHeading">Loading your profile...</h2>
+
+      <div class="intro-stats" id="introStats">
+        <div class="intro-stat">
+          <span class="istat-num" id="statExp">—</span>
+          <span class="istat-label">Work Experiences</span>
+        </div>
+        <div class="istat-divider"></div>
+        <div class="intro-stat">
+          <span class="istat-num" id="statSkills">—</span>
+          <span class="istat-label">PM-Relevant Skills</span>
+        </div>
+        <div class="istat-divider"></div>
+        <div class="intro-stat">
+          <span class="istat-num" id="statScore" style="color:var(--green)">—</span>
+          <span class="istat-label">Readiness Score</span>
+        </div>
+      </div>
+
+      <div class="readiness-bar-wrap">
+        <div class="readiness-bar">
+          <div class="readiness-fill" id="readinessFill"></div>
+        </div>
+        <span class="readiness-label" id="readinessLabel"></span>
+      </div>
+
+      <div class="intro-divider"></div>
+
+      <p class="intro-message" id="introMessage"></p>
+
+      <div class="intro-what">
+        <p class="what-title">What happens next:</p>
+        <ul class="what-list">
+          <li><span class="what-icon">💬</span> A short AI-guided conversation (~5–10 min)</li>
+          <li><span class="what-icon">🎯</span> Questions tailored to your role and background</li>
+          <li><span class="what-icon">📊</span> Full skill gap report with a personalised roadmap</li>
+        </ul>
+      </div>
+
+      <button class="btn-primary large full" onclick="window.location.href='conversation.html'">
+        Continue to conversation →
+      </button>
+
+      <p class="intro-skip">Not now? <a href="index.html" class="link-green">Save and come back later</a></p>
+    </div>
+  </main>
+
+  <div class="toast hidden" id="toast"><span class="toast-icon">✓</span><span id="toast-msg">Progress saved!</span></div>
+
+  <script>
+    function saveProgress() {
+      showToast('Progress saved!');
+    }
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2500);
+    }
+
+    const ROLE_DATA = {
+      growth:     { label: 'Growth PM',      exp: 3, skills: 9,  score: 62 },
+      generalist: { label: 'Generalist PM',  exp: 3, skills: 11, score: 71 },
+      technical:  { label: 'Technical PM',   exp: 3, skills: 7,  score: 54 },
+      platform:   { label: 'Platform PM',    exp: 3, skills: 8,  score: 58 },
+      aiml:       { label: 'AI/ML PM',       exp: 3, skills: 6,  score: 49 },
+      data:       { label: 'Data PM',        exp: 3, skills: 8,  score: 60 },
+    };
+
+    const role = sessionStorage.getItem('pathpm_role') || 'growth';
+    const d = ROLE_DATA[role];
+    const user = JSON.parse(sessionStorage.getItem('pathpm_user') || '{"name":"there"}');
+    const firstName = user.name.split(' ')[0];
+
+    document.getElementById('introHeading').textContent =
+      `We found ${d.exp} work experiences in your resume and identified ${d.skills} PM-relevant skills. Your initial readiness estimate is ${d.score}% for ${d.label}.`;
+
+    document.getElementById('statExp').textContent = d.exp;
+    document.getElementById('statSkills').textContent = d.skills;
+    document.getElementById('statScore').textContent = d.score + '%';
+
+    // Animate bar
+    setTimeout(() => {
+      document.getElementById('readinessFill').style.width = d.score + '%';
+      const label = d.score >= 70 ? 'Strong start' : d.score >= 55 ? 'Good foundation' : 'Room to grow';
+      document.getElementById('readinessLabel').textContent = label;
+    }, 300);
+
+    document.getElementById('introMessage').textContent =
+      `Before we show you the full analysis, ${firstName}, we'd like to ask a few questions to fill in the gaps and make sure we haven't missed anything.`;
+
+    // Save for conversation page
+    sessionStorage.setItem('pathpm_role_label', d.label);
+    sessionStorage.setItem('pathpm_score', d.score);
+  </script>
+
+</body>
+</html>

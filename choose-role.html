@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPM – Choose Your PM Role</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+</head>
+<body class="onboarding-page">
+
+  <!-- NAV -->
+  <nav class="onboarding-nav role-nav">
+    <a href="dashboard.html" class="logo on-logo">
+      <span class="logo-dot"></span> PathPM
+    </a>
+    <div class="stepper">
+      <div class="step done-step">
+        <span class="step-bubble done-bubble">✓</span>
+        <span class="step-name muted">Resume Parsed</span>
+      </div>
+      <div class="step-line filled"></div>
+      <div class="step active">
+        <span class="step-bubble active">2</span>
+        <span class="step-name">Choose Your Role</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step">
+        <span class="step-bubble">3</span>
+        <span class="step-name muted">Quick Assessment</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="save-exit-btn" onclick="handleSaveExit()">Save</button>
+      <button class="signout-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </nav>
+
+  <!-- LAYOUT -->
+  <div class="role-layout">
+
+    <!-- LEFT: PROFILE PANEL -->
+    <aside class="profile-panel">
+
+      <!-- Resume Match Score (moved from bottom ribbon) -->
+      <div class="profile-score-block hidden" id="profileScoreBlock">
+        <div class="profile-score-label">RESUME MATCH</div>
+        <div class="profile-score-row">
+          <span class="profile-score-num" id="bridgeScore">—</span>
+          <span class="profile-score-sub">/ 100</span>
+          <span class="bridge-incomplete-tag">Incomplete</span>
+        </div>
+        <div class="profile-score-bar"><div class="bridge-bar-fill" id="bridgeBarFill"></div></div>
+      </div>
+
+      <p class="found-label">We found this 👋</p>
+
+      <div class="profile-card">
+        <div class="profile-avatar" id="profileAvatar">YM</div>
+        <div>
+          <strong id="profileName">Yash Mehta</strong>
+          <span id="profileRole">Business Analyst · Deloitte</span>
+        </div>
+      </div>
+
+      <div class="profile-meta">
+        <div class="meta-row">
+          <span class="meta-label">Industry</span>
+          <span class="meta-value" id="profileIndustry">Consulting &amp; Ops</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Work Experience</span>
+          <span class="meta-value" id="profileExp">4 years</span>
+        </div>
+      </div>
+
+      <div class="skills-section">
+        <p class="skills-label">KEY SKILLS</p>
+        <div class="skills-tags" id="skillsTags">
+          <span class="skill-tag">Requirements Mgmt</span>
+          <span class="skill-tag">Data Analysis</span>
+          <span class="skill-tag">Sprint Facilitation</span>
+          <span class="skill-tag">Stakeholder Mgmt</span>
+          <span class="skill-tag">Product Roadmap</span>
+          <span class="skill-tag">User Research</span>
+          <span class="skill-tag">Agile Methodology</span>
+        </div>
+      </div>
+
+      <button class="edit-profile-btn" onclick="toggleEditMode()">
+        ✏️ Edit if anything looks off
+      </button>
+
+      <!-- EDIT FORM — skills only -->
+      <div class="edit-form hidden" id="editForm">
+        <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px;">Remove incorrect skills or add ones that were missed.</p>
+        <div class="edit-skills-wrap" id="editSkillsWrap"></div>
+        <div class="edit-add-row">
+          <div class="skill-autocomplete-wrap">
+            <input type="text" id="editSkillInput" placeholder="Type to search or add a skill…" autocomplete="off"
+              oninput="filterSkillSuggestions()"
+              onkeydown="handleSkillInputKey(event)" />
+            <div class="skill-suggestions hidden" id="skillSuggestions"></div>
+          </div>
+          <button class="btn-ghost small" onclick="addSkillTag()">+ Add</button>
+        </div>
+        <button class="btn-primary small full" onclick="saveEdit()">Save Changes</button>
+      </div>
+    </aside>
+
+    <!-- RIGHT: ROLE SELECTION -->
+    <main class="role-main">
+      <h2 class="role-heading">Choose your PM target role</h2>
+      <p class="role-sub">We've highlighted the role that best matches your background. However, feel free to choose the role you're most interested in — your roadmap will be built around it. Once you select a role, you'll see the skills you already have and the ones you need to develop at the bottom.</p>
+
+      <div class="role-grid" id="roleGrid">
+
+        <div class="role-card" data-role="growth" onclick="selectRole(this)">
+          <div class="role-card-header">
+            <span class="role-icon">📈</span>
+            <span class="recommended-badge">⭐ Recommended</span>
+          </div>
+          <h3>Growth PM</h3>
+          <p class="role-desc">Focus on acquisition, retention, and monetisation metrics.</p>
+          <p class="role-quote">"Optimising the onboarding funnel to reduce churn."</p>
+          <div class="role-reason">
+            <span class="reason-label">REASON</span>
+            <p>Your consulting background maps well to Growth PM roles that need all-around problem-solving.</p>
+          </div>
+        </div>
+
+        <div class="role-card" data-role="generalist" onclick="selectRole(this)">
+          <div class="role-card-header">
+            <span class="role-icon">🧩</span>
+          </div>
+          <h3>Generalist PM</h3>
+          <p class="role-desc">End-to-end ownership of product features from ideation to launch.</p>
+          <p class="role-quote">"Onboarding requirement for a new mobile dashboard."</p>
+        </div>
+
+        <div class="role-card" data-role="technical" onclick="selectRole(this)">
+          <div class="role-card-header">
+            <span class="role-icon">⚙️</span>
+          </div>
+          <h3>Technical PM</h3>
+          <p class="role-desc">Deep dive into APIs, architecture, and developer platforms.</p>
+          <p class="role-quote">"Derive data pipelines for non-data scientists."</p>
+        </div>
+
+        <div class="role-card" data-role="platform" onclick="selectRole(this)">
+          <div class="role-card-header">
+            <span class="role-icon">🏗️</span>
+          </div>
+          <h3>Platform PM</h3>
+          <p class="role-desc">Building services used by other internal product teams.</p>
+          <p class="role-quote">"Designing a shared design system for global apps."</p>
+        </div>
+
+        <div class="role-card" data-role="aiml" onclick="selectRole(this)">
+          <div class="role-card-header">
+            <span class="role-icon">🤖</span>
+          </div>
+          <h3>AI/ML PM</h3>
+          <p class="role-desc">Leveraging machine learning models to solve user problems.</p>
+          <p class="role-quote">"Building an LLM-based customer support agent."</p>
+        </div>
+
+        <div class="role-card" data-role="data" onclick="selectRole(this)">
+          <div class="role-card-header">
+            <span class="role-icon">📊</span>
+          </div>
+          <h3>Data PM</h3>
+          <p class="role-desc">Ensuring data quality, accessibility, and governance across org.</p>
+          <p class="role-quote">"Building a 360-degree customer view attribution model."</p>
+        </div>
+
+      </div>
+
+      <div class="role-footer">
+        <a href="upload.html" class="btn-back">← Back</a>
+      </div>
+    </main>
+  </div>
+
+  <!-- SKILL GAP + ASSESSMENT PANEL (slides up on role selection) -->
+  <div class="bridge-panel hidden" id="bridgePanel">
+    <div class="bridge-inner">
+
+      <!-- Skill gap -->
+      <div class="bridge-gap-block">
+        <div class="bridge-gap-row">
+          <span class="bridge-gap-label">✅ YOU HAVE</span>
+          <div class="bridge-gap-chips" id="gapHave"></div>
+        </div>
+        <div class="bridge-gap-row">
+          <span class="bridge-gap-label">📚 TO DEVELOP</span>
+          <div class="bridge-gap-chips missing" id="gapMissing"></div>
+        </div>
+      </div>
+
+      <div class="bridge-divider"></div>
+
+      <!-- Why take assessment -->
+      <div class="bridge-why-block">
+        <p class="bridge-why-msg" id="bridgeWhyMsg"></p>
+      </div>
+
+      <div class="bridge-divider"></div>
+
+      <!-- CTA -->
+      <div class="bridge-cta-block">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="display:flex;flex-direction:column;gap:3px;">
+            <button class="bridge-start-btn" onclick="handleMCQ()">
+              Start Assessment &nbsp;→
+            </button>
+            <p class="bridge-cta-note">10 MCQ + case study + AI discussion</p>
+          </div>
+          <button class="bridge-skip-btn" onclick="skipToDashboard()">Skip for now</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast hidden">
+    <span class="toast-icon">✓</span>
+    <span id="toast-msg">Saved!</span>
+  </div>
+
+  <script>
+    let selectedRole = 'growth'; // default, overridden by analysis below
+
+    // ── Load resume analysis data ─────────────────────────────────
+    const resumeData = JSON.parse(sessionStorage.getItem('pathpm_resume_data') || '{}');
+    const authUser   = JSON.parse(sessionStorage.getItem('pathpm_user') || '{}');
+
+    const displayName = resumeData.name || authUser.name || 'You';
+    const initials    = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+    document.getElementById('profileAvatar').textContent  = initials;
+    document.getElementById('profileName').textContent    = displayName;
+
+    // Role & company
+    const roleText = [resumeData.currentRole, resumeData.company].filter(Boolean).join(' · ');
+    document.getElementById('profileRole').textContent = roleText || 'Professional';
+
+    // Industry & experience
+    if (resumeData.industry)  document.getElementById('profileIndustry').textContent = resumeData.industry;
+    if (resumeData.yearsExp)  document.getElementById('profileExp').textContent      = resumeData.yearsExp;
+
+    // Skills — replace static tags with extracted ones
+    const skillsContainer = document.getElementById('skillsTags');
+    if (resumeData.skills && resumeData.skills.length > 0) {
+      skillsContainer.innerHTML = resumeData.skills
+        .map(s => `<span class="skill-tag">${s}</span>`).join('');
+    }
+
+    // Recommended role — move badge to the right card
+    const recommended = resumeData.recommendedRole || 'growth';
+    document.querySelectorAll('.role-card').forEach(card => {
+      const header = card.querySelector('.role-card-header');
+      // Remove any existing badge
+      const existing = header.querySelector('.recommended-badge');
+      if (existing) existing.remove();
+      // Remove existing reason block from non-recommended
+      const reason = card.querySelector('.role-reason');
+      if (reason && card.dataset.role !== recommended) reason.remove();
+
+      if (card.dataset.role === recommended) {
+        card.classList.add('recommended');
+        header.insertAdjacentHTML('beforeend', '<span class="recommended-badge">⭐ Recommended</span>');
+        card.classList.add('selected');
+        if (!card.querySelector('.role-reason')) {
+          card.insertAdjacentHTML('beforeend', `
+            <div class="role-reason">
+              <span class="reason-label">REASON</span>
+              <p>Based on your resume, this track aligns best with your background and skills.</p>
+            </div>`);
+        }
+      } else {
+        card.classList.remove('recommended', 'selected');
+      }
+    });
+
+    // Update selectedRole to the recommended one
+    selectedRole = recommended;
+
+    // Show panel for recommended role on load
+    setTimeout(() => showBridgePanel(recommended), 400);
+
+    // Required skills per PM role (core = must-have, bonus = nice-to-have)
+    const ROLE_REQUIREMENTS = {
+      growth:     { core: ['A/B Testing', 'Funnel Analysis', 'Growth', 'Data Analysis', 'SQL', 'User Research', 'Go-to-Market'],    bonus: ['Python', 'Product Strategy', 'Stakeholder Mgmt'] },
+      generalist: { core: ['Product Roadmap', 'User Research', 'Stakeholder Mgmt', 'Agile / Scrum', 'Product Strategy', 'Prioritisation'], bonus: ['Data Analysis', 'Go-to-Market', 'A/B Testing'] },
+      technical:  { core: ['API / Integrations', 'SQL', 'Python', 'Agile / Scrum', 'Product Roadmap', 'Data Analysis'],             bonus: ['Machine Learning', 'Stakeholder Mgmt', 'Product Strategy'] },
+      platform:   { core: ['API / Integrations', 'Product Roadmap', 'Stakeholder Mgmt', 'Product Strategy', 'Agile / Scrum'],       bonus: ['SQL', 'User Research', 'Go-to-Market'] },
+      aiml:       { core: ['Machine Learning', 'Python', 'Data Analysis', 'Product Strategy', 'User Research', 'SQL'],              bonus: ['API / Integrations', 'A/B Testing', 'Stakeholder Mgmt'] },
+      data:       { core: ['SQL', 'Data Analysis', 'Data Pipelines', 'Python', 'Product Roadmap', 'Stakeholder Mgmt'],              bonus: ['A/B Testing', 'Machine Learning', 'Product Strategy'] },
+    };
+
+    const ROLE_BRIDGE = {
+      growth:     { score: 62 },
+      generalist: { score: 71 },
+      technical:  { score: 54 },
+      platform:   { score: 58 },
+      aiml:       { score: 49 },
+      data:       { score: 60 },
+    };
+
+    function selectRole(card) {
+      document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedRole = card.dataset.role;
+      showBridgePanel(selectedRole);
+    }
+
+    function showBridgePanel(role) {
+      const req        = ROLE_REQUIREMENTS[role];
+      const userSkills = resumeData.skills || [];
+
+      // Match skills case-insensitively
+      const skillMatch = (req, user) =>
+        user.some(u => u.toLowerCase().includes(req.toLowerCase().split(' ')[0]) ||
+                       req.toLowerCase().includes(u.toLowerCase().split(' ')[0]));
+
+      const have    = req.core.filter(s =>  skillMatch(s, userSkills));
+      const missing = req.core.filter(s => !skillMatch(s, userSkills));
+
+      // Score = base 20 + up to 45 from skill match + small bonus from resume
+      const matchRatio  = have.length / req.core.length;
+      const computedScore = Math.min(Math.round(20 + matchRatio * 45), 65);
+      const displayScore  = ROLE_BRIDGE[role].score > computedScore ? ROLE_BRIDGE[role].score : computedScore;
+
+      // Set score and persist so subsequent pages see the same number
+      document.getElementById('bridgeScore').textContent = displayScore;
+      sessionStorage.setItem('pathpm_score', displayScore);
+      const fill = document.getElementById('bridgeBarFill');
+      fill.style.width = '0%';
+      setTimeout(() => { fill.style.width = displayScore + '%'; }, 80);
+
+      // Skill gap chips
+      document.getElementById('gapHave').innerHTML =
+        (have.length ? have : ['—']).map(s => `<span class="gap-chip gap-have">${s}</span>`).join('');
+      document.getElementById('gapMissing').innerHTML =
+        (missing.length ? missing : ['All core skills covered ✅']).map(s => `<span class="gap-chip gap-miss">${s}</span>`).join('');
+
+      // Save skill gap to session for later use
+      sessionStorage.setItem('pathpm_skill_gap', JSON.stringify({ have, missing, role }));
+
+      // Dynamic "why take assessment" message
+      const roleLabels = { growth: 'Growth PM', generalist: 'Generalist PM', technical: 'Technical PM', platform: 'Platform PM', aiml: 'AI/ML PM', data: 'Data PM' };
+      const rl = roleLabels[role] || 'PM';
+      let whyMsg = '';
+      if (missing.length === 0) {
+        whyMsg = `Your resume already covers all the core ${rl} skills — impressive! The assessment will verify your depth in each area and give you a precise readiness score to benchmark against.`;
+      } else if (have.length === 0) {
+        whyMsg = `You have ${missing.length} core ${rl} skills to build. The assessment will pinpoint exactly where to focus first, so you're not guessing — you'll get a personalised action plan at the end.`;
+      } else if (missing.length <= 2) {
+        whyMsg = `You're close — just ${missing.length} core skill${missing.length > 1 ? 's' : ''} to close the gap for ${rl}. Take the assessment to confirm your strengths and get targeted resources for what's missing.`;
+      } else {
+        whyMsg = `Your background gives you a solid base. The assessment will show how your existing skills translate into ${rl} thinking and highlight the ${missing.length} areas to develop — with a clear roadmap to get there.`;
+      }
+      document.getElementById('bridgeWhyMsg').textContent = whyMsg;
+
+      // Show score in profile panel
+      document.getElementById('profileScoreBlock').classList.remove('hidden');
+
+      // Slide in
+      const panel = document.getElementById('bridgePanel');
+      panel.classList.remove('hidden', 'bridge-exit');
+      panel.classList.add('bridge-enter');
+    }
+
+    // Current editable skills list (mirrors the displayed tags)
+    let editableSkills = [];
+
+    function toggleEditMode() {
+      const form = document.getElementById('editForm');
+      if (form.classList.contains('hidden')) {
+        // Populate editable skills from current displayed tags
+        editableSkills = Array.from(
+          document.getElementById('skillsTags').querySelectorAll('.skill-tag')
+        ).map(el => el.textContent.trim());
+        renderEditSkills();
+      }
+      form.classList.toggle('hidden');
+    }
+
+    function renderEditSkills() {
+      document.getElementById('editSkillsWrap').innerHTML = editableSkills.map((s, i) => `
+        <span class="edit-skill-chip">
+          ${s}
+          <button class="edit-skill-remove" onclick="removeSkillTag(${i})" title="Remove">✕</button>
+        </span>`).join('');
+    }
+
+    // Full list of PM-relevant skills for autocomplete
+    const ALL_PM_SKILLS = [
+      'A/B Testing', 'Agile / Scrum', 'API / Integrations', 'Backlog Grooming',
+      'Business Analysis', 'Competitive Analysis', 'CRM', 'Customer Journey Mapping',
+      'Data Analysis', 'Data Pipelines', 'Data Visualisation', 'Data Governance',
+      'Experimentation', 'Figma / Design', 'Funnel Analysis', 'Go-to-Market',
+      'Growth Hacking', 'Growth Marketing', 'JIRA', 'KPI Definition',
+      'Machine Learning', 'Market Research', 'Metrics & OKRs', 'Mobile Product',
+      'NPS Analysis', 'OKR Setting', 'Platform Thinking', 'Prioritisation',
+      'Product Analytics', 'Product Design', 'Product Discovery', 'Product Roadmap',
+      'Product Strategy', 'Python', 'Requirements Gathering', 'Retention Analysis',
+      'Revenue Modelling', 'Risk Management', 'SaaS', 'SQL',
+      'Stakeholder Mgmt', 'System Design', 'Technical Writing', 'UX Research',
+      'User Research', 'User Stories', 'Wireframing',
+    ];
+
+    function removeSkillTag(index) {
+      editableSkills.splice(index, 1);
+      renderEditSkills();
+    }
+
+    function filterSkillSuggestions() {
+      const input = document.getElementById('editSkillInput');
+      const query = input.value.trim().toLowerCase();
+      const box   = document.getElementById('skillSuggestions');
+
+      if (!query) { box.classList.add('hidden'); return; }
+
+      const matches = ALL_PM_SKILLS.filter(s =>
+        s.toLowerCase().includes(query) && !editableSkills.includes(s)
+      ).slice(0, 8);
+
+      if (!matches.length) { box.classList.add('hidden'); return; }
+
+      box.innerHTML = matches.map(s =>
+        `<div class="skill-suggestion-item" onmousedown="pickSuggestion('${s}')">${s}</div>`
+      ).join('');
+      box.classList.remove('hidden');
+    }
+
+    function pickSuggestion(skill) {
+      editableSkills.push(skill);
+      document.getElementById('editSkillInput').value = '';
+      document.getElementById('skillSuggestions').classList.add('hidden');
+      renderEditSkills();
+    }
+
+    function addSkillTag() {
+      const input = document.getElementById('editSkillInput');
+      const val = input.value.trim();
+      document.getElementById('skillSuggestions').classList.add('hidden');
+      if (!val || editableSkills.map(s => s.toLowerCase()).includes(val.toLowerCase())) {
+        input.value = '';
+        return;
+      }
+      editableSkills.push(val);
+      input.value = '';
+      renderEditSkills();
+    }
+
+    function handleSkillInputKey(e) {
+      if (e.key === 'Enter') { e.preventDefault(); addSkillTag(); }
+      if (e.key === 'Escape') { document.getElementById('skillSuggestions').classList.add('hidden'); }
+    }
+
+    // Close dropdown when clicking elsewhere
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.skill-autocomplete-wrap')) {
+        document.getElementById('skillSuggestions')?.classList.add('hidden');
+      }
+    });
+
+    function saveEdit() {
+      if (editableSkills.length === 0) { showToast('Add at least one skill.'); return; }
+
+      // Update the displayed skills tags
+      document.getElementById('skillsTags').innerHTML =
+        editableSkills.map(s => `<span class="skill-tag">${s}</span>`).join('');
+
+      // Update sessionStorage so skill gap re-calculates correctly
+      const rd = JSON.parse(sessionStorage.getItem('pathpm_resume_data') || '{}');
+      rd.skills = editableSkills;
+      sessionStorage.setItem('pathpm_resume_data', JSON.stringify(rd));
+
+      document.getElementById('editForm').classList.add('hidden');
+
+      // Re-run skill gap with updated skills
+      showBridgePanel(selectedRole);
+      showToast('Skills updated!');
+    }
+
+    async function saveRoleToSession() {
+      const labels = { growth:'Growth PM', generalist:'Generalist PM', technical:'Technical PM', platform:'Platform PM', aiml:'AI/ML PM', data:'Data PM' };
+      const label  = labels[selectedRole];
+      // Use the displayScore already stored by showBridgePanel — not the raw base
+      const score  = parseInt(sessionStorage.getItem('pathpm_score') || ROLE_BRIDGE[selectedRole].score);
+
+      sessionStorage.setItem('pathpm_role',       selectedRole);
+      sessionStorage.setItem('pathpm_role_label', label);
+
+      // Persist to Supabase
+      const user = await getCurrentUser();
+      if (user) {
+        await sb.from('user_role_selection').upsert({
+          user_id:     user.id,
+          role_key:    selectedRole,
+          role_label:  label,
+          base_score:  score,
+          final_score: score,
+          updated_at:  new Date().toISOString()
+        }, { onConflict: 'user_id' });
+      }
+    }
+
+    function handleMCQ() {
+      saveRoleToSession();
+      window.location.href = 'mcq.html';
+    }
+
+    function skipToDashboard() {
+      saveRoleToSession();
+      window.location.href = 'dashboard.html';
+    }
+
+    function handleSaveExit() {
+      sessionStorage.setItem('pathpm_role', selectedRole);
+      showToast('Progress saved!');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2500);
+    }
+  </script>
+
+</body>
+</html>

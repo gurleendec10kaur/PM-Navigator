@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPM – Sign Up / Log In</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+</head>
+<body class="auth-page">
+
+  <div class="auth-layout">
+
+    <!-- LEFT PANEL -->
+    <div class="auth-left">
+      <a href="index.html" class="logo auth-logo">&#9632; PathPM</a>
+      <div class="auth-left-content">
+        <p class="badge-pill">&#128101; 400+ PM ASPIRANTS ON THEIR PATH</p>
+        <h2>Your PM readiness journey starts here.</h2>
+        <p class="auth-left-sub">Get a personalised skill gap analysis and a structured roadmap to landing your dream Product role.</p>
+        <ul class="auth-features">
+          <li>
+            <span class="feat-icon">&#128202;</span>
+            <div>
+              <strong>Skill Gap Analysis</strong>
+              <p>Deep dive into your PM competencies.</p>
+            </div>
+          </li>
+          <li>
+            <span class="feat-icon">&#127919;</span>
+            <div>
+              <strong>Benchmark Score</strong>
+              <p>See how you rate against top PM candidates.</p>
+            </div>
+          </li>
+          <li>
+            <span class="feat-icon">&#128196;</span>
+            <div>
+              <strong>Resume Builder</strong>
+              <p>Craft resumes that hiring managers love.</p>
+            </div>
+          </li>
+        </ul>
+        <div class="testimonial">
+          <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <p>"PathPM told me exactly where I was weak in technical strategy. Within 2 weeks, I closed my gaps and doubled my offer."</p>
+          <div class="testimonial-author">
+            <div class="avatar">G</div>
+            <div>
+              <strong>Gurleen K.</strong>
+              <span>PM at Google after Amazon</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="auth-right">
+      <a href="index.html" class="back-link">&#8592; Back to Homepage</a>
+
+      <div class="auth-box">
+        <!-- TABS -->
+        <div class="auth-tabs">
+          <button class="tab-btn active" id="tab-signup" onclick="switchTab('signup')">Sign Up</button>
+          <button class="tab-btn" id="tab-login" onclick="switchTab('login')">Log In</button>
+        </div>
+
+        <!-- EMAIL CONFIRMATION WAITING STATE -->
+        <div id="form-confirm" class="auth-form hidden" style="text-align:center;padding:32px 0;">
+          <div style="font-size:2.5rem;margin-bottom:16px;">📬</div>
+          <h3>Check your inbox</h3>
+          <p class="form-sub" id="confirmEmailHint">We sent a confirmation link to <strong id="confirmEmailAddr"></strong></p>
+          <p style="font-size:0.82rem;color:var(--text-muted);margin-top:12px;line-height:1.6;">Click the link in that email to activate your account. Once confirmed, come back here and <a href="#" onclick="switchTab('login')" style="color:var(--green)">log in</a>.</p>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-top:20px;">Didn't receive it? Check your spam folder or <a href="#" onclick="resendConfirmation()" style="color:var(--green)">resend the email</a>.</p>
+        </div>
+
+        <!-- SIGN UP FORM -->
+        <div id="form-signup" class="auth-form">
+          <h3>Create your account</h3>
+          <p class="form-sub">Start your PM readiness journey — Free</p>
+
+          <button class="btn-google" onclick="handleGoogle()">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+              <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+              <path d="M3.964 10.707A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+            </svg>
+            Continue with Google
+          </button>
+
+          <div class="divider"><span>OR</span></div>
+
+          <form onsubmit="handleSignup(event)">
+            <div class="form-group">
+              <label>FULL NAME</label>
+              <input type="text" id="signup-name" placeholder="Sarah Mitchell" required />
+            </div>
+            <div class="form-group">
+              <label>EMAIL</label>
+              <input type="email" id="signup-email" placeholder="sarah@example.com" required />
+            </div>
+            <div class="form-group">
+              <label>PASSWORD</label>
+              <div class="password-wrap">
+                <input type="password" id="signup-password" placeholder="••••••••" required minlength="8" />
+                <button type="button" class="toggle-pw" onclick="togglePassword('signup-password', this)">Show</button>
+              </div>
+            </div>
+            <label class="checkbox-label">
+              <input type="checkbox" id="terms" required />
+              I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+            </label>
+            <button type="submit" class="btn-primary full">Create Account &#8594;</button>
+          </form>
+
+          <p class="switch-link">Already have an account? <a href="#" onclick="switchTab('login')">Log In</a></p>
+        </div>
+
+        <!-- LOG IN FORM -->
+        <div id="form-login" class="auth-form hidden">
+          <h3>Welcome back</h3>
+          <p class="form-sub">Log in to continue your PM journey</p>
+
+          <button class="btn-google" onclick="handleGoogle()">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+              <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+              <path d="M3.964 10.707A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+            </svg>
+            Continue with Google
+          </button>
+
+          <div class="divider"><span>OR</span></div>
+
+          <form onsubmit="handleLogin(event)">
+            <div class="form-group">
+              <label>EMAIL</label>
+              <input type="email" id="login-email" placeholder="sarah@example.com" required />
+            </div>
+            <div class="form-group">
+              <label>PASSWORD</label>
+              <div class="password-wrap">
+                <input type="password" id="login-password" placeholder="••••••••" required />
+                <button type="button" class="toggle-pw" onclick="togglePassword('login-password', this)">Show</button>
+              </div>
+            </div>
+            <div class="forgot-row">
+              <a href="#" class="forgot-link">Forgot password?</a>
+            </div>
+            <button type="submit" class="btn-primary full">Log In &#8594;</button>
+          </form>
+
+          <p class="switch-link">Don't have an account? <a href="#" onclick="switchTab('signup')">Sign Up</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast hidden">
+    <span class="toast-icon">&#10003;</span>
+    <span id="toast-msg">Account created!</span>
+  </div>
+
+  <script>
+    let pendingEmail = '';
+    let isRedirecting = false; // guard against double-redirects
+
+    // ── Central routing function ──────────────────────────────────────
+    async function routeUser(userId) {
+      if (isRedirecting) return;
+      isRedirecting = true;
+      try {
+        const { data } = await sb
+          .from('user_role_selection')
+          .select('role_key, role_label, final_score')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (data) {
+          sessionStorage.setItem('pathpm_role',       data.role_key);
+          sessionStorage.setItem('pathpm_role_label', data.role_label);
+          sessionStorage.setItem('pathpm_score',      data.final_score);
+          window.location.href = 'dashboard.html';
+        } else {
+          window.location.href = 'welcome.html';
+        }
+      } catch (err) {
+        isRedirecting = false;
+        console.error('routeUser error', err);
+      }
+    }
+
+    // ── Skip auth page if already logged in ──────────────────────────
+    (async () => {
+      const { data: { user } } = await sb.auth.getUser();
+      if (user) routeUser(user.id);
+    })();
+
+    // ── UI helpers ───────────────────────────────────────────────────
+    function switchTab(tab) {
+      ['signup','login','confirm'].forEach(t =>
+        document.getElementById('form-' + t).classList.toggle('hidden', t !== tab)
+      );
+      document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+      document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    }
+
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.remove('hidden');
+      toast.style.background = isError ? '#ef4444' : '';
+      setTimeout(() => { toast.classList.add('hidden'); toast.style.background = ''; }, 3500);
+    }
+
+    function setLoading(btnId, loading, label) {
+      const btn = document.querySelector(`#${btnId} button[type="submit"]`);
+      if (!btn) return;
+      btn.disabled = loading;
+      btn.textContent = loading ? 'Please wait…' : label;
+    }
+
+    // ── Sign Up ───────────────────────────────────────────────────────
+    async function handleSignup(e) {
+      e.preventDefault();
+      const name     = document.getElementById('signup-name').value.trim();
+      const email    = document.getElementById('signup-email').value.trim();
+      const password = document.getElementById('signup-password').value;
+      if (!name || !email || !password) return;
+
+      setLoading('form-signup', true, 'Create Account →');
+      try {
+        const { data, error } = await sb.auth.signUp({
+          email, password,
+          options: { data: { name }, emailRedirectTo: window.location.href }
+        });
+        if (error) { showToast(error.message, true); setLoading('form-signup', false, 'Create Account →'); return; }
+
+        // Email confirmation is off — user is immediately signed in
+        if (data.session) {
+          sessionStorage.setItem('pathpm_user', JSON.stringify({ name, email }));
+          routeUser(data.user.id);
+        } else {
+          // Confirmation email sent
+          pendingEmail = email;
+          sessionStorage.setItem('pathpm_user', JSON.stringify({ name, email }));
+          document.getElementById('confirmEmailAddr').textContent = email;
+          switchTab('confirm');
+        }
+      } catch (err) {
+        showToast('Something went wrong. Please try again.', true);
+      } finally {
+        setLoading('form-signup', false, 'Create Account →');
+      }
+    }
+
+    async function resendConfirmation() {
+      if (!pendingEmail) return;
+      const { error } = await sb.auth.resend({ type: 'signup', email: pendingEmail });
+      showToast(error ? error.message : 'Confirmation email resent!', !!error);
+    }
+
+    // ── Log In ────────────────────────────────────────────────────────
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email    = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      if (!email || !password) return;
+
+      setLoading('form-login', true, 'Log In →');
+      try {
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) { showToast(error.message, true); setLoading('form-login', false, 'Log In →'); return; }
+
+        // Store name from metadata or profiles
+        const { data: profile } = await sb.from('profiles').select('name').eq('id', data.user.id).maybeSingle();
+        const name = profile?.name || data.user.user_metadata?.name || email.split('@')[0];
+        sessionStorage.setItem('pathpm_user', JSON.stringify({ name, email }));
+        showToast('Welcome back, ' + name.split(' ')[0] + '!');
+
+        setTimeout(() => routeUser(data.user.id), 900);
+      } catch (err) {
+        showToast('Something went wrong. Please try again.', true);
+        setLoading('form-login', false, 'Log In →');
+      }
+    }
+
+    // ── Google OAuth ──────────────────────────────────────────────────
+    async function handleGoogle() {
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + '/welcome.html' }
+      });
+      if (error) showToast(error.message, true);
+    }
+
+    function togglePassword(id, btn) {
+      const input = document.getElementById(id);
+      input.type  = input.type === 'password' ? 'text' : 'password';
+      btn.textContent = input.type === 'password' ? 'Show' : 'Hide';
+    }
+  </script>
+
+</body>
+</html>

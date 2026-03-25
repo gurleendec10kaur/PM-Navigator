@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPM – Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+</head>
+<body class="dashboard-page">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <a href="dashboard.html" class="logo db-logo">
+      <span class="logo-dot"></span> PathPM
+    </a>
+
+    <!-- PROFILE BLOCK -->
+    <div class="sidebar-profile">
+      <div class="sp-avatar" id="sidebarAvatar">—</div>
+      <div class="sp-name" id="sidebarName">—</div>
+      <div class="sp-role-badge" id="sidebarRoleBadge">PM</div>
+    </div>
+    <div class="sp-score-block sidebar-score-block">
+      <div class="sp-score-label">READINESS SCORE</div>
+      <div class="sp-score-row">
+        <span class="sp-score-num" id="sidebarScoreNum">—</span>
+        <span class="sp-score-sub">/ 100</span>
+      </div>
+      <div class="sp-score-bar"><div class="sp-bar-fill" id="sidebarBarFill"></div></div>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <div class="db-main">
+
+    <!-- TOPBAR -->
+    <header class="db-topbar">
+      <div class="topbar-left"></div>
+      <div class="topbar-right">
+        <button class="signout-btn" onclick="signOut()">Sign out</button>
+        <div class="topbar-avatar" id="topAvatar">YM</div>
+      </div>
+    </header>
+
+    <!-- CONTENT -->
+    <div class="db-content">
+
+      <!-- ROLE SUGGESTION BANNER -->
+      <div class="suggestion-banner" id="suggestionBanner">
+        <div class="sb-icon">💡</div>
+        <div class="sb-text">
+          <p><strong>Based on your experience, you might also be a strong fit for <span id="altRole">Technical PM</span>.</strong></p>
+          <p class="sb-sub">Your skills in <span id="skillHighlight">Stakeholder Mgmt and Data Analysis</span> align well with this track.</p>
+        </div>
+        <div class="sb-actions">
+          <button class="btn-outline small" onclick="switchRole()">Switch to <span id="altRoleBtn">Technical PM</span></button>
+          <button class="btn-primary small" onclick="dismissBanner()">Keep current selection</button>
+        </div>
+      </div>
+
+      <!-- READINESS SNAPSHOT -->
+      <div class="readiness-snapshot">
+        <div class="rs-header">
+          <div class="rs-score-block">
+            <div class="rs-score-num" id="rsScore">—</div>
+            <div class="rs-score-label">/ 100</div>
+          </div>
+          <div class="rs-interpretation">
+            <h3 class="rs-band" id="rsBand">—</h3>
+            <p class="rs-message" id="rsMessage"></p>
+          </div>
+        </div>
+
+        <div class="rs-gaps hidden" id="rsGaps">
+          <span class="rs-gaps-label">Skills to close:</span>
+          <div class="rs-gap-chips" id="rsGapChips"></div>
+        </div>
+
+        <div class="rs-paths">
+          <div class="rs-path" onclick="document.getElementById('panel-learning').scrollIntoView({behavior:'smooth', block:'start'})">
+            <div class="rs-path-icon">📚</div>
+            <div class="rs-path-content">
+              <strong>Follow the Learning Path</strong>
+              <p>Structured modules built around your exact skill gaps. Each stage builds on the last — this is the fastest way to close the distance between where you are and where you need to be.</p>
+            </div>
+            <span class="rs-path-arrow">→</span>
+          </div>
+          <div class="rs-path" onclick="window.location.href='mock-interviews.html'">
+            <div class="rs-path-icon">🎤</div>
+            <div class="rs-path-content">
+              <strong>Do a Mock Interview</strong>
+              <p>Knowing the frameworks is not enough — you need to articulate your thinking under pressure. Mock interviews reveal gaps that no quiz can, and are what separates candidates who pass screens from those who don't.</p>
+            </div>
+            <span class="rs-path-arrow">→</span>
+          </div>
+          <div class="rs-path" onclick="window.location.href='resume-builder.html'">
+            <div class="rs-path-icon">📄</div>
+            <div class="rs-path-content">
+              <strong>Rebuild your Resume for PM</strong>
+              <p>Your current resume describes your job. A PM resume tells a story of product impact. Reframing your experience the way hiring managers read it is often the difference between getting a screen call and getting ignored.</p>
+            </div>
+            <span class="rs-path-arrow">→</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- LEARNING PATH -->
+      <div id="panel-learning">
+        <div class="learning-header">
+          <h3 class="lp-title">Your Learning Path: <span id="lpRole">Growth PM</span></h3>
+          <span class="lp-progress" id="lpProgressText">0% OVERALL PROGRESS</span>
+        </div>
+        <div class="lp-progress-bar">
+          <div class="lp-progress-fill" id="lpProgressFill"></div>
+        </div>
+
+        <div class="stages">
+
+          <!-- Stage 1 -->
+          <div class="stage completed" onclick="toggleStage(this)">
+            <div class="stage-header">
+              <span class="stage-check done">✓</span>
+              <div class="stage-info">
+                <strong>Stage 1: Foundational Frameworks</strong>
+                <span class="stage-date">Completed on Oct 12</span>
+              </div>
+              <span class="stage-chevron">›</span>
+            </div>
+          </div>
+
+          <!-- Stage 2 -->
+          <div class="stage completed" onclick="toggleStage(this)">
+            <div class="stage-header">
+              <span class="stage-check done">✓</span>
+              <div class="stage-info">
+                <strong>Stage 2: Technical PM Deep Dive</strong>
+                <span class="stage-date">Completed on Oct 28</span>
+              </div>
+              <span class="stage-chevron">›</span>
+            </div>
+          </div>
+
+          <!-- Stage 3 — ACTIVE -->
+          <div class="stage active-stage open" onclick="toggleStage(this)">
+            <div class="stage-header">
+              <span class="stage-num active-num">03</span>
+              <div class="stage-info">
+                <strong>Stage 3: Product Sense &amp; Strategy</strong>
+              </div>
+              <span class="stage-chevron open-chevron">‹</span>
+            </div>
+            <div class="stage-body">
+              <div class="lesson done-lesson">
+                <span class="lesson-check">✓</span>
+                <div class="lesson-info">
+                  <strong>The Amazon Method: Working Backwards</strong>
+                  <span>Reading · 12 mins · Done</span>
+                </div>
+              </div>
+              <div class="lesson done-lesson">
+                <span class="lesson-check">✓</span>
+                <div class="lesson-info">
+                  <strong>Execution Strategies for Growth PMs</strong>
+                  <span>Video · 45 mins · Done</span>
+                </div>
+              </div>
+              <div class="lesson active-lesson">
+                <span class="lesson-active-dot"></span>
+                <div class="lesson-info">
+                  <strong>Product Sense Diagnostic Quiz</strong>
+                  <span class="active-tag">ACTIVE MODULE · REQUIRED FOR STAGE 4</span>
+                </div>
+                <button class="btn-primary small" onclick="event.stopPropagation(); window.location.href='mcq.html?count=10'">Start Quiz</button>
+              </div>
+              <div class="lesson locked-lesson">
+                <span class="lesson-lock">🔒</span>
+                <div class="lesson-info">
+                  <strong>Build: Strategy Roadmap for 'X'</strong>
+                  <span>Practical Project · Locked</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage 4 -->
+          <div class="stage locked-stage" onclick="toggleStage(this)">
+            <div class="stage-header">
+              <span class="lesson-lock">🔒</span>
+              <div class="stage-info">
+                <strong>Stage 4: Analytics &amp; A/B Testing</strong>
+              </div>
+              <span class="stage-chevron">›</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="role-footer" style="padding: 24px 0 8px;">
+          <a href="conversation.html" class="btn-back">← Back</a>
+        </div>
+
+      </div>
+
+
+    </div><!-- /db-content -->
+  </div><!-- /db-main -->
+
+
+  <script>
+    // ── Load live data from Supabase, fall back to sessionStorage ──
+    let user      = JSON.parse(sessionStorage.getItem('pathpm_user') || '{"name":"Yash Mehta"}');
+    let role      = sessionStorage.getItem('pathpm_role') || 'growth';
+    let roleLabel = sessionStorage.getItem('pathpm_role_label') || 'Growth PM';
+    let score     = parseInt(sessionStorage.getItem('pathpm_score') || '62');
+
+    (async () => {
+      const sbUser = await getCurrentUser();
+      if (!sbUser) { window.location.href = 'auth.html'; return; }
+
+      // Fetch latest role + score from DB (overrides sessionStorage if fresher)
+      const { data: roleRow } = await sb
+        .from('user_role_selection')
+        .select('role_key, role_label, final_score')
+        .eq('user_id', sbUser.id)
+        .maybeSingle();
+
+      if (roleRow) {
+        role      = roleRow.role_key;
+        roleLabel = roleRow.role_label;
+        score     = roleRow.final_score;
+        sessionStorage.setItem('pathpm_role',       role);
+        sessionStorage.setItem('pathpm_role_label', roleLabel);
+        sessionStorage.setItem('pathpm_score',      score);
+      }
+
+      // Fetch display name
+      const { data: profile } = await sb
+        .from('profiles')
+        .select('name')
+        .eq('id', sbUser.id)
+        .maybeSingle();
+
+      if (profile?.name) {
+        user = { name: profile.name };
+        sessionStorage.setItem('pathpm_user', JSON.stringify(user));
+      }
+
+      // Re-render with live values
+      initDashboard();
+    })();
+
+    function initDashboard() {
+
+    const ROLE_ALT = {
+      growth:     { alt: 'Technical PM',   altKey: 'technical',  skills: 'Stakeholder Mgmt and Data Analysis' },
+      generalist: { alt: 'Growth PM',      altKey: 'growth',     skills: 'Communication and Roadmapping' },
+      technical:  { alt: 'Platform PM',    altKey: 'platform',   skills: 'System Design and API Thinking' },
+      platform:   { alt: 'Generalist PM',  altKey: 'generalist', skills: 'Cross-functional Leadership' },
+      aiml:       { alt: 'Data PM',        altKey: 'data',       skills: 'Data Analysis and ML Fundamentals' },
+      data:       { alt: 'Technical PM',   altKey: 'technical',  skills: 'SQL and Data Pipeline skills' },
+    };
+
+    // Set user
+    const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+    document.getElementById('topAvatar').textContent = initials;
+    document.getElementById('lpRole').textContent = roleLabel;
+
+    // Sidebar profile
+    document.getElementById('sidebarAvatar').textContent    = initials;
+    document.getElementById('sidebarName').textContent      = user.name;
+    document.getElementById('sidebarRoleBadge').textContent = 'Target: ' + roleLabel;
+    document.getElementById('sidebarScoreNum').textContent  = score;
+    setTimeout(() => {
+      document.getElementById('sidebarBarFill').style.width = score + '%';
+    }, 300);
+
+    // Readiness snapshot
+    const SCORE_BANDS = [
+      { max: 49,  band: 'Early stage',          msg: 'Your background has real potential, but foundational PM knowledge is still the missing piece. Start with the learning path — the concepts will unlock everything else and your score will move quickly.' },
+      { max: 65,  band: 'Building your base',   msg: 'Solid instincts and transferable skills. A few core PM areas still need work before you\'re interview-ready. Targeted learning will close the gap fast — you\'re closer than you think.' },
+      { max: 79,  band: 'Nearly interview-ready', msg: 'Strong foundation — you could start applying selectively right now. Use mock interviews to sharpen how you communicate your thinking under pressure, and plug the remaining skill gaps.' },
+      { max: 100, band: 'PM-ready',             msg: 'Your skills and experience align well with PM roles. Focus on polishing your resume, practising your story, and applying. The hard work is done — now it\'s about execution.' },
+    ];
+    const band = SCORE_BANDS.find(b => score <= b.max) || SCORE_BANDS[SCORE_BANDS.length - 1];
+    document.getElementById('rsScore').textContent   = score;
+    document.getElementById('rsBand').textContent    = band.band;
+    document.getElementById('rsMessage').textContent = band.msg;
+
+    const missing = (JSON.parse(sessionStorage.getItem('pathpm_skill_gap') || '{}')).missing || [];
+    if (missing.length > 0) {
+      document.getElementById('rsGaps').classList.remove('hidden');
+      document.getElementById('rsGapChips').innerHTML = missing.slice(0, 5)
+        .map(s => `<span class="rs-gap-chip">${s}</span>`).join('');
+    }
+
+    // Set alt role
+    const alt = ROLE_ALT[role] || ROLE_ALT.growth;
+    document.getElementById('altRole').textContent = alt.alt;
+    document.getElementById('altRoleBtn').textContent = alt.alt;
+    document.getElementById('skillHighlight').textContent = alt.skills;
+
+    // Compute learning progress from DOM
+    const totalStages     = document.querySelectorAll('.stages .stage').length;
+    const completedStages = document.querySelectorAll('.stages .stage.completed').length;
+    const activeDone      = document.querySelectorAll('.stages .stage.active-stage .lesson.done-lesson').length;
+    const activeTotal     = document.querySelectorAll('.stages .stage.active-stage .lesson').length;
+    const activePartial   = activeTotal > 0 ? activeDone / activeTotal : 0;
+    const progressPct     = totalStages > 0 ? Math.round(((completedStages + activePartial) / totalStages) * 100) : 0;
+    document.getElementById('lpProgressText').textContent = progressPct + '% OVERALL PROGRESS';
+    setTimeout(() => {
+      document.getElementById('lpProgressFill').style.width = progressPct + '%';
+    }, 300);
+
+    } // end initDashboard()
+
+    // Run immediately as fallback (sessionStorage values) in case Supabase is slow
+    initDashboard();
+
+    function dismissBanner() {
+      document.getElementById('suggestionBanner').style.display = 'none';
+      const learningPanel = document.getElementById('panel-learning');
+      learningPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      learningPanel.style.outline = '2px solid var(--green)';
+      learningPanel.style.borderRadius = '12px';
+      setTimeout(() => { learningPanel.style.outline = 'none'; }, 2000);
+    }
+    function switchRole() {
+      const altData = ROLE_ALT[role] || ROLE_ALT.growth;
+      sessionStorage.setItem('pathpm_role', altData.altKey);
+      sessionStorage.setItem('pathpm_role_label', altData.alt);
+      window.location.href = 'mcq.html?from=switch';
+    }
+
+    function toggleStage(stage) {
+      if (!stage.classList.contains('active-stage')) return;
+      stage.classList.toggle('open');
+      const chevron = stage.querySelector('.stage-chevron');
+      chevron.classList.toggle('open-chevron');
+    }
+  </script>
+
+</body>
+</html>

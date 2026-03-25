@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPM – MCQ Assessment</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+</head>
+<body class="onboarding-page mcq-page">
+
+  <nav class="onboarding-nav role-nav">
+    <a href="dashboard.html" class="logo on-logo"><span class="logo-dot"></span> PathPM</a>
+    <div class="stepper">
+      <div class="step done-step"><span class="step-bubble done-bubble">✓</span><span class="step-name muted">Resume Parsed</span></div>
+      <div class="step-line filled"></div>
+      <div class="step done-step"><span class="step-bubble done-bubble">✓</span><span class="step-name muted">Choose Role</span></div>
+      <div class="step-line filled"></div>
+      <div class="step active"><span class="step-bubble active pulse">3</span><span class="step-name">Assessment</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="save-exit-btn" onclick="saveProgress()">Save</button>
+      <button class="signout-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </nav>
+
+  <div class="assessment-layout">
+
+  <!-- LEFT PANEL -->
+  <aside class="side-panel" id="sidePanel">
+    <div class="sp-profile">
+      <div class="sp-avatar" id="spAvatar">—</div>
+      <div class="sp-name" id="spName">—</div>
+      <div class="sp-role-badge" id="spRoleBadge">PM</div>
+    </div>
+    <div class="sp-score-block">
+      <div class="sp-score-label">RESUME MATCH</div>
+      <div class="sp-score-row">
+        <span class="sp-score-num" id="spScore">—</span>
+        <span class="sp-score-sub">/ 100</span>
+      </div>
+      <div class="sp-score-bar"><div class="sp-bar-fill" id="spBarFill"></div></div>
+    </div>
+    <div class="sp-gap-section">
+      <div class="sp-gap-title">✅ YOU HAVE</div>
+      <div class="sp-gap-chips" id="spHave"></div>
+    </div>
+    <div class="sp-gap-section">
+      <div class="sp-gap-title">📚 TO DEVELOP</div>
+      <div class="sp-gap-chips" id="spMissing"></div>
+    </div>
+  </aside>
+
+  <!-- RIGHT CONTENT -->
+  <div class="side-content">
+  <main class="mcq-main">
+    <div class="mcq-card">
+
+      <!-- HEADER -->
+      <div class="mcq-header">
+        <div class="mcq-meta">
+          <span class="mcq-role-tag" id="mcqRoleTag">Growth PM</span>
+          <span class="mcq-counter" id="mcqCounter">Question 1 of 5</span>
+        </div>
+        <div class="mcq-progress-bar">
+          <div class="mcq-progress-fill" id="mcqProgressFill"></div>
+        </div>
+      </div>
+
+      <!-- QUESTION -->
+      <div class="mcq-body" id="mcqBody">
+        <p class="mcq-topic" id="mcqTopic">Metrics Ownership</p>
+        <h2 class="mcq-question" id="mcqQuestion">Loading...</h2>
+        <div class="mcq-options" id="mcqOptions"></div>
+        <p class="mcq-feedback hidden" id="mcqFeedback"></p>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="mcq-footer">
+        <button class="btn-ghost" onclick="skipQuestion()">Skip</button>
+        <button class="btn-primary" id="nextBtn" onclick="nextQuestion()" disabled>Next →</button>
+      </div>
+
+    </div>
+
+  </main>
+
+  <div class="role-footer">
+    <a href="choose-role.html" class="btn-back">← Back</a>
+  </div>
+
+  <!-- RESULTS OVERLAY -->
+  <div class="mcq-results hidden" id="mcqResults">
+    <div class="results-card">
+      <div class="results-icon">🎯</div>
+      <h2>Assessment Complete!</h2>
+      <p class="results-sub" id="resultsSub"></p>
+      <div class="results-score-wrap">
+        <div class="results-score" id="resultsScore">0</div>
+        <div class="results-score-label">/100<br><span>PM Readiness</span></div>
+      </div>
+      <div class="results-bar"><div class="results-bar-fill" id="resultsBarFill"></div></div>
+      <div class="results-breakdown" id="resultsBreakdown"></div>
+      <div class="results-actions">
+        <button class="btn-outline" onclick="window.location.href='conversation.html'">
+          💬 Also chat with AI to refine further
+        </button>
+        <button class="btn-primary large" onclick="window.location.href='dashboard.html'">
+          View Full Dashboard →
+        </button>
+      </div>
+    </div>
+  </div><!-- end side-content -->
+  </div><!-- end assessment-layout -->
+
+  <script>
+    const role      = sessionStorage.getItem('pathpm_role') || 'growth';
+    const roleLabel = sessionStorage.getItem('pathpm_role_label') || 'Growth PM';
+    const baseScore = parseInt(sessionStorage.getItem('pathpm_score') || '62');
+
+    document.getElementById('mcqRoleTag').textContent = roleLabel;
+
+    // ── Side panel ───────────────────────────────────────────────
+    (function() {
+      const rd  = JSON.parse(sessionStorage.getItem('pathpm_resume_data') || '{}');
+      const sg  = JSON.parse(sessionStorage.getItem('pathpm_skill_gap')   || '{}');
+      const usr = JSON.parse(sessionStorage.getItem('pathpm_user')        || '{}');
+      const sc  = sessionStorage.getItem('pathpm_score') || '—';
+      const name = rd.name || usr.name || 'You';
+      document.getElementById('spAvatar').textContent    = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+      document.getElementById('spName').textContent      = name;
+      document.getElementById('spRoleBadge').textContent = 'Target: ' + (sessionStorage.getItem('pathpm_role_label') || 'PM');
+      document.getElementById('spScore').textContent     = sc;
+      setTimeout(() => { document.getElementById('spBarFill').style.width = sc + '%'; }, 300);
+      const have    = sg.have    || [];
+      const missing = sg.missing || [];
+      document.getElementById('spHave').innerHTML    = have.length    ? have.map(s=>`<span class="gap-chip gap-have">${s}</span>`).join('')    : '<span class="sp-empty">—</span>';
+      document.getElementById('spMissing').innerHTML = missing.length ? missing.map(s=>`<span class="gap-chip gap-miss">${s}</span>`).join('') : '<span class="sp-empty">—</span>';
+    })();
+
+    const QUESTIONS = {
+      growth: [
+        {
+          topic: 'Metrics Ownership',
+          q: 'Your app\'s activation rate drops from 45% to 30% in a week. What\'s your FIRST step?',
+          options: ['Immediately A/B test a new onboarding flow', 'Investigate what changed in the product or environment that week', 'Alert engineering to check for bugs', 'Survey users who didn\'t activate'],
+          answer: 1,
+          explanation: 'Before acting, you need to understand the cause. A drop could be a bug, a traffic source change, or a product change — diagnosis first.'
+        },
+        {
+          topic: 'A/B Testing',
+          q: 'You want to run an A/B test on your signup CTA. Your site gets 500 visitors/day and current conversion is 5%. How long should you run the test to detect a 20% relative improvement?',
+          options: ['2–3 days', '1 week', '2–4 weeks', 'Until you have 100 conversions per variant'],
+          answer: 2,
+          explanation: 'With low traffic and a small baseline, you need 2–4 weeks minimum to reach statistical significance. Running too short gives false signals.'
+        },
+        {
+          topic: 'Funnel Analysis',
+          q: 'Signup→Activation is 60% but Activation→Retention (Day 7) is only 18%. Where should a Growth PM focus?',
+          options: ['Improve the signup flow to get more users in', 'Fix the activation experience — users aren\'t reaching the "aha moment"', 'Run win-back campaigns for churned users', 'Increase marketing spend to offset the drop'],
+          answer: 1,
+          explanation: 'The weakest link is Activation→Retention. More signups won\'t help if users aren\'t getting value fast enough. Fix the "aha moment" first.'
+        },
+        {
+          topic: 'Stakeholder Management',
+          q: 'A senior stakeholder wants to ship a referral feature without testing because "competitors have it." What do you do?',
+          options: ['Ship it — they\'re senior and probably right', 'Delay indefinitely until you have research', 'Propose a time-boxed soft launch to a small segment with clear success metrics', 'Escalate to your manager'],
+          answer: 2,
+          explanation: 'A soft launch balances speed with learning. It respects the stakeholder\'s urgency while protecting the product from an untested bet.'
+        },
+        {
+          topic: 'Growth Thinking',
+          q: 'Which of these best indicates early product-market fit for a B2C app?',
+          options: ['10,000 downloads in week one', 'Users returning organically without prompts after their first week', 'Positive app store reviews', 'Low customer acquisition cost'],
+          answer: 1,
+          explanation: 'Unprompted return behaviour is the strongest signal of PMF — users found enough value to come back on their own. Downloads and reviews can be gamed.'
+        },
+        {
+          topic: 'Retention',
+          q: 'Day-30 retention for your app drops from 28% to 16%. Which cohort analysis approach gives you the best starting point?',
+          options: ['Look at demographics of churned users', 'Compare behaviour patterns of retained vs churned users in the same cohort', 'Survey all users about their satisfaction', 'Check if competitors launched a new feature'],
+          answer: 1,
+          explanation: 'Behavioural comparison within the same cohort isolates what actions correlated with retention — giving you actionable signals to amplify or fix.'
+        },
+        {
+          topic: 'North Star Metric',
+          q: 'Your team debates between MAU and "messages sent per user per week" as the north star. Which should a Growth PM prefer?',
+          options: ['MAU — easier to track and report to leadership', '"Messages sent per week" — it reflects actual value delivery, not just visits', 'Both equally — use both on the dashboard', 'Whichever is higher right now'],
+          answer: 1,
+          explanation: 'North star metrics should reflect the core value users get. MAU counts logins; messages sent measures engagement. Engagement predicts retention and revenue better.'
+        },
+        {
+          topic: 'Monetisation',
+          q: 'You\'re considering adding a paywall to a previously free feature used by 40% of your users. What do you test first?',
+          options: ['Immediately put the full feature behind paywall for all users', 'Run a price sensitivity survey then A/B test on a small cohort', 'Ask your CFO what revenue target you need to hit', 'Look at what competitors charge for a similar feature'],
+          answer: 1,
+          explanation: 'Price sensitivity research followed by a controlled experiment reduces churn risk. Jumping straight to a hard paywall without testing can cause irreversible user drop-off.'
+        },
+        {
+          topic: 'Data-driven Decisions',
+          q: 'An experiment shows a 3% lift in signups (p=0.04) but a 5% drop in Day-7 retention. What do you do?',
+          options: ['Ship it — statistically significant signup lift wins', 'Kill it — any retention drop is unacceptable', 'Investigate why retention dropped before deciding; short-term signups don\'t justify long-term churn', 'Run the experiment longer to see if retention recovers'],
+          answer: 2,
+          explanation: 'Acquiring users who churn quickly is worse than not acquiring them at all. A Growth PM must balance the full funnel, not just top-of-funnel metrics.'
+        },
+      ],
+      generalist: [
+        {
+          topic: 'Prioritisation',
+          q: 'You have 4 features requested by sales, engineering, users, and leadership. Resources allow only 1 this quarter. How do you decide?',
+          options: ['Build what leadership asked for — they control headcount', 'Use a framework like RICE to score each by impact, confidence, and effort', 'Do user research and go with the most requested', 'Pick the quickest to ship'],
+          answer: 1,
+          explanation: 'RICE or similar frameworks make prioritisation transparent and defensible. They remove politics and ground decisions in data.'
+        },
+        {
+          topic: 'Feature Scoping',
+          q: 'Engineering says the MVP you scoped will take 10 weeks. You have 4 weeks. What\'s the right move?',
+          options: ['Ask for more engineers', 'Push back on the deadline with leadership', 'Ruthlessly cut scope — identify the single riskiest assumption and build only what tests it', 'Delay the entire project'],
+          answer: 2,
+          explanation: 'Cutting to the core assumption is the PM\'s job. A 4-week MVP that validates the riskiest part is more valuable than a perfect product delayed 10 weeks.'
+        },
+        {
+          topic: 'User Research',
+          q: 'You\'re designing a new feature. You have 1 week to learn. What\'s the most useful thing to do?',
+          options: ['Send a survey to 500 users', 'Conduct 5–8 user interviews focused on current behaviour', 'Analyse existing usage data', 'Read competitor reviews on the App Store'],
+          answer: 1,
+          explanation: '5–8 interviews surface patterns quickly and reveal the "why" behind behaviour. Surveys tell you what, interviews tell you why — and you need why to design well.'
+        },
+        {
+          topic: 'Stakeholder Communication',
+          q: 'You missed a sprint commitment. How do you communicate this to stakeholders?',
+          options: ['Wait until you\'re back on track before saying anything', 'Proactively communicate early, explain the root cause, and share a revised plan', 'Blame the engineering team', 'Quietly move the deadline in the roadmap'],
+          answer: 1,
+          explanation: 'PMs own outcomes, not just outputs. Early, honest communication with a plan rebuilds trust faster than silence or blame.'
+        },
+        {
+          topic: 'Product Sense',
+          q: 'Google Maps\' ETA accuracy drops by 15% after an update. What\'s your first hypothesis?',
+          options: ['Traffic data source changed or degraded', 'Users are complaining more than before', 'Competitor maps are more accurate now', 'The UI is confusing users'],
+          answer: 0,
+          explanation: 'ETA accuracy is a data problem first. The most likely root cause is a change in the underlying traffic or routing data, not UX or competition.'
+        },
+        {
+          topic: 'Product Discovery',
+          q: 'You discover users frequently abandon your checkout at the payment step. What is the most valuable next step?',
+          options: ['Redesign the checkout UI immediately', 'Add a discount popup to prevent abandonment', 'Interview users who abandoned and users who completed to find the friction point', 'A/B test different button colours on the payment page'],
+          answer: 2,
+          explanation: 'Qualitative research reveals the actual reason for abandonment — it could be trust, confusion, or payment options. Jumping to solutions without diagnosis wastes resources.'
+        },
+        {
+          topic: 'Trade-off Analysis',
+          q: 'You can ship a feature to 100% of users now with known usability issues, or wait 2 weeks to fix them. Users have been waiting 3 months. What do you do?',
+          options: ['Ship now — users have waited long enough', 'Wait 2 weeks — ship quality or don\'t ship', 'Ship to 10% of users now, gather feedback, fix then roll out fully', 'Cancel the feature and start over'],
+          answer: 2,
+          explanation: 'A staged rollout lets you honour user expectations while containing the risk of known issues. It\'s the PM\'s classic answer when neither extreme is right.'
+        },
+        {
+          topic: 'Launch Planning',
+          q: 'What is the most important thing to define BEFORE a product launch?',
+          options: ['The press release headline', 'Success metrics and what "good" looks like at day 7, 30, and 90', 'The sales enablement materials', 'The post-launch marketing plan'],
+          answer: 1,
+          explanation: 'Without pre-defined success criteria, you cannot evaluate whether the launch worked. Defining metrics before launch prevents post-hoc rationalisation.'
+        },
+        {
+          topic: 'User Research',
+          q: 'You are running jobs-to-be-done interviews. A user says "I want a faster horse." What is the PM\'s correct interpretation?',
+          options: ['Build a feature that increases speed of the current product', 'Ignore literal requests and build what you think is right', 'Dig into the underlying job: they want to get somewhere faster — the solution could be anything', 'Ask more users if they also want a faster horse'],
+          answer: 2,
+          explanation: 'JTBD says users describe solutions, not needs. "Faster horse" = "move faster". The PM\'s job is to find the best solution for the underlying need, not build the literal request.'
+        },
+      ],
+      technical: [
+        {
+          topic: 'Engineering Collaboration',
+          q: 'Engineering estimates 6 weeks for a feature. Business needs it in 3. What\'s your move?',
+          options: ['Tell business it\'s impossible', 'Work with engineering to find a scope-reduced version deliverable in 3 weeks', 'Override engineering and commit to 3 weeks anyway', 'Ask for more engineers to be assigned'],
+          answer: 1,
+          explanation: 'The PM\'s job is to find the intersection of business needs and technical reality. Scope negotiation — not overriding or deflecting — is the core skill here.'
+        },
+        {
+          topic: 'Technical Trade-offs',
+          q: 'Your team can build a feature with a quick hack in 1 week, or the "right" way in 4 weeks. You\'re pre-PMF. What do you do?',
+          options: ['Always do it the right way — tech debt kills velocity later', 'Take the hack — validate the feature first, then refactor if it works', 'Ask engineering to find a middle ground', 'Delay the feature until you have more time'],
+          answer: 1,
+          explanation: 'Pre-PMF, speed of learning beats code quality. Ship fast, validate the hypothesis, and pay down tech debt after you know it\'s worth building well.'
+        },
+        {
+          topic: 'API & System Thinking',
+          q: 'You\'re building a developer-facing API. Which matters most for adoption?',
+          options: ['Being faster than REST alternatives', 'Clear documentation and predictable error handling', 'Supporting every possible use case', 'Having the latest technology stack'],
+          answer: 1,
+          explanation: 'Developer adoption is won through trust and usability. Docs, consistent behaviour, and helpful errors matter far more than raw performance for initial adoption.'
+        },
+        {
+          topic: 'Technical Communication',
+          q: 'An exec asks why a feature took 3x longer than estimated. What do you say?',
+          options: ['The engineers underestimated', 'We discovered hidden complexity during implementation — here\'s what we learned and how we\'ll estimate better next time', 'It\'s a technical problem I can\'t explain simply', 'We needed more time to do it right'],
+          answer: 1,
+          explanation: 'Own the outcome, explain the learning, and show process improvement. Execs don\'t need technical details — they need confidence in your judgment.'
+        },
+        {
+          topic: 'System Design Thinking',
+          q: 'You\'re scoping a new notification system. What\'s the first question you ask?',
+          options: ['What\'s the tech stack?', 'What user behaviour are we trying to drive, and how will we measure success?', 'Can we reuse an existing library?', 'How many notifications per second do we need to support?'],
+          answer: 1,
+          explanation: 'Always start with outcome, not implementation. The behaviour you\'re driving and how you\'ll measure it shapes every technical decision that follows.'
+        },
+        {
+          topic: 'Technical Debt',
+          q: 'Engineering wants to spend the next sprint on refactoring with no user-facing changes. How do you evaluate this?',
+          options: ['Decline — the team should always ship user value', 'Approve unconditionally — engineers know best', 'Quantify the cost of the debt (slower velocity, bug rate) and weigh against the roadmap opportunity cost', 'Ask the CTO to decide'],
+          answer: 2,
+          explanation: 'Technical debt has a real business cost: slower feature delivery and more bugs. Treat it like any other investment — quantify the benefit and weigh against alternatives.'
+        },
+        {
+          topic: 'Security Trade-offs',
+          q: 'Adding MFA would reduce account takeovers by an estimated 80% but increase login friction, dropping DAU by ~5%. What do you do?',
+          options: ['Ship MFA — security always wins', 'Don\'t ship — user drop is unacceptable', 'Ship MFA as opt-in first, measure actual churn vs assumed, then decide on default', 'Escalate to Legal and let them decide'],
+          answer: 2,
+          explanation: 'Assumptions about friction are often wrong. An opt-in rollout gives you real data. It also respects user autonomy while improving security for those who care most.'
+        },
+        {
+          topic: 'Engineering Collaboration',
+          q: 'A senior engineer says your spec is technically infeasible. What is your best response?',
+          options: ['Defend the spec — you\'ve already aligned stakeholders', 'Ask them to explain the constraints, then collaboratively redesign the spec to meet the underlying goal', 'Escalate to your engineering manager', 'Ask a different engineer for a second opinion'],
+          answer: 1,
+          explanation: 'Technical PMs earn trust by listening and co-designing — not defending specs. The goal is the outcome, not the spec. Understanding constraints leads to better solutions.'
+        },
+        {
+          topic: 'Performance Monitoring',
+          q: 'Your SLA is 99.9% uptime. You\'ve had 3 incidents this month totalling 90 minutes of downtime. What is your status?',
+          options: ['Compliant — 90 minutes is under an hour per incident', 'Non-compliant — 99.9% allows ~44 min/month, you\'ve used 90', 'Compliant — 3 incidents below 1 hour each is within limit', 'Need more data to determine compliance'],
+          answer: 1,
+          explanation: '99.9% uptime = 43.8 minutes of allowed downtime per month. 90 minutes exceeds this. Technical PMs must understand SLA math to make credible reliability commitments.'
+        },
+      ],
+      platform: [
+        {
+          topic: 'Internal Customer Mindset',
+          q: 'Two internal teams have conflicting requirements for a shared API. How do you resolve it?',
+          options: ['Build both versions to keep everyone happy', 'Pick the team with more seniority', 'Identify the common underlying need and design a solution that serves both without duplicating', 'Escalate to leadership to decide'],
+          answer: 2,
+          explanation: 'Platform PMs find the canonical solution, not the path of least resistance. Understanding the underlying need — not the stated request — is the key skill.'
+        },
+        {
+          topic: 'Platform Adoption',
+          q: 'Teams are building workarounds instead of using your platform. What\'s the root cause?',
+          options: ['They don\'t know the platform exists', 'The platform doesn\'t solve their actual problem well enough — adoption is a product quality signal', 'They\'re being stubborn', 'They need more documentation'],
+          answer: 1,
+          explanation: 'Workarounds are user feedback in disguise. They mean your platform has a gap. Before adding docs or messaging, understand what the workaround is solving that you\'re not.'
+        },
+        {
+          topic: 'Developer Experience',
+          q: 'What\'s the most important metric for a platform team\'s success?',
+          options: ['Number of API calls per day', 'Time-to-first-successful-integration for new consumers', 'Lines of code in the platform', 'Number of teams using the platform'],
+          answer: 1,
+          explanation: 'Time-to-first-success measures developer experience directly. A platform that\'s hard to adopt isn\'t serving its customers — internal teams who have alternatives.'
+        },
+        {
+          topic: 'Governance',
+          q: 'A team wants to deprecate a shared component you own that 12 other teams use. What\'s your process?',
+          options: ['Refuse — you can\'t deprecate something others depend on', 'Deprecate immediately and let teams adapt', 'Agree on a migration timeline, communicate early, provide migration tooling, and set a hard cutoff date', 'Put it to a vote among the teams'],
+          answer: 2,
+          explanation: 'Deprecation in a platform context requires communication, tooling, and time. Surprise deprecations destroy trust; structured ones are normal and healthy.'
+        },
+        {
+          topic: 'Platform Strategy',
+          q: 'When should a platform team say "no" to a feature request from an internal team?',
+          options: ['Never — internal teams are your customers and you should serve them', 'When the feature only benefits one team and would increase platform complexity for everyone', 'When the team doesn\'t have senior sponsorship', 'When engineering estimates it as high effort'],
+          answer: 1,
+          explanation: 'Platform PMs protect the coherence of the platform. Features that benefit one team at the cost of complexity for all others violate the platform\'s purpose.'
+        },
+        {
+          topic: 'Platform Versioning',
+          q: 'You need to introduce a breaking change to your platform API. What\'s the right approach?',
+          options: ['Release the breaking change and let consumers adapt', 'Maintain both v1 and v2 with a clear sunset date for v1, and provide a migration guide', 'Cancel the change — breaking changes are never acceptable', 'Ask only the highest-traffic consumers to migrate and ignore others'],
+          answer: 1,
+          explanation: 'Versioning with a sunset timeline gives consumer teams time to migrate without blocking your roadmap. It balances platform evolution with consumer stability.'
+        },
+        {
+          topic: 'Adoption Strategy',
+          q: 'A new internal platform capability has been available for 6 months but only 2 of 15 teams have adopted it. What do you investigate first?',
+          options: ['Whether the capability is actually good enough to use', 'The integration effort — if it\'s too high, teams will deprioritise adoption regardless of value', 'Why the other teams are so slow', 'Whether the 2 adopting teams are happy'],
+          answer: 1,
+          explanation: 'Adoption friction is the #1 killer of internal platform tools. Before improving the capability itself, understand whether the cost of integration is blocking adoption.'
+        },
+        {
+          topic: 'Internal Customer Management',
+          q: 'Two teams have conflicting timelines for a shared platform feature. How do you resolve it?',
+          options: ['First-come, first-served — whoever asked first gets priority', 'Escalate to leadership and let them decide', 'Assess business impact and urgency for each team, propose a sequencing plan both can live with', 'Build two separate features, one for each team'],
+          answer: 2,
+          explanation: 'Platform PMs must balance multiple internal customers fairly. Transparent prioritisation based on business impact — not politics or timing — builds lasting credibility.'
+        },
+        {
+          topic: 'Self-serve Tools',
+          q: 'Platform adoption is low because teams always need engineering help to integrate. What\'s the best long-term fix?',
+          options: ['Hire more platform engineers to help with integrations', 'Build SDKs, starter templates, and runbooks so teams can self-serve without platform help', 'Mandate platform usage through company policy', 'Simplify the platform by removing features to reduce complexity'],
+          answer: 1,
+          explanation: 'Self-serve capability multiplies adoption without multiplying headcount. The best platform teams invest in developer tooling and documentation to remove the need for white-glove support.'
+        },
+      ],
+      aiml: [
+        {
+          topic: 'ML Product Thinking',
+          q: 'When is a rule-based system better than an ML model for a product feature?',
+          options: ['Never — ML is always more accurate', 'When the logic is well-understood, data is limited, and you need full explainability', 'When you have lots of labelled data', 'When the feature is user-facing'],
+          answer: 1,
+          explanation: 'Rule-based systems are predictable, debuggable, and don\'t need training data. For deterministic problems or regulated environments, they\'re often the right choice.'
+        },
+        {
+          topic: 'Model Evaluation',
+          q: 'Your recommendation model has 95% accuracy. Should you ship it?',
+          options: ['Yes — 95% is excellent', 'Check what the baseline (e.g. most popular item) accuracy is first — 95% may be worse than a simple rule', 'No — wait until it\'s 99%', 'Ship to 10% of users first'],
+          answer: 1,
+          explanation: 'Accuracy without a baseline is meaningless. If recommending the top item gets 94% accuracy, your model only adds 1% lift — which may not justify the complexity.'
+        },
+        {
+          topic: 'Data Quality',
+          q: 'Your model\'s performance degrades over 3 months post-launch. What\'s most likely?',
+          options: ['The model code has a bug', 'Data drift — real-world patterns have shifted away from the training distribution', 'Users don\'t like the feature', 'The model needs more parameters'],
+          answer: 1,
+          explanation: 'Data drift is the most common cause of model degradation in production. The world changes; models trained on historical data don\'t update automatically.'
+        },
+        {
+          topic: 'AI Risk & Ethics',
+          q: 'Your content moderation model has 98% precision but 60% recall. What\'s the risk of shipping it?',
+          options: ['Low — 98% precision means almost no false positives', 'High — 40% of harmful content gets through (false negatives), which is the more dangerous failure mode here', 'Medium — retrain with more data', 'None — precision is what matters for moderation'],
+          answer: 1,
+          explanation: 'For content moderation, recall (catching bad content) is the critical metric. 60% recall means 40% of harmful content is missed — a major product and trust risk.'
+        },
+        {
+          topic: 'AI PM Communication',
+          q: 'How do you explain to a non-technical exec why your AI feature sometimes gives wrong answers?',
+          options: ['Tell them the model needs more training data', 'Explain that AI models find patterns in data and perform well on average, but edge cases exist — and show your monitoring plan', 'Apologise and promise a fix', 'Avoid the topic until it\'s resolved'],
+          answer: 1,
+          explanation: 'Execs need to understand the nature of probabilistic systems and your plan to monitor and improve. Confidence comes from showing you understand the failure modes.'
+        },
+        {
+          topic: 'Responsible AI',
+          q: 'Your hiring recommendation model performs 12% worse for candidates from certain demographic groups. What do you do?',
+          options: ['Ship it — 12% is within acceptable variance', 'Block the launch, investigate the training data for bias, and conduct a fairness audit before reconsidering', 'Add a disclaimer that the model may not be perfect', 'Ask legal if it\'s technically legal to ship'],
+          answer: 1,
+          explanation: 'Algorithmic bias in hiring is both an ethical and legal risk. Shipping a model with known demographic disparities without investigation could cause real harm and regulatory exposure.'
+        },
+        {
+          topic: 'Data Labeling',
+          q: 'Your training dataset for a sentiment model was labelled by 3 annotators with 65% agreement. What should you do?',
+          options: ['Use the data — 65% is good enough', 'Establish clearer labelling guidelines, add annotators, and measure inter-annotator agreement above 80% before training', 'Use only the examples all 3 annotators agreed on', 'Increase the model size to compensate for noisy labels'],
+          answer: 1,
+          explanation: 'Low inter-annotator agreement means the task definition is ambiguous. Training on ambiguous labels produces a model that learns noise, not the target behaviour.'
+        },
+        {
+          topic: 'Model Deployment',
+          q: 'You\'re deploying an ML feature to production for the first time. What\'s the safest rollout strategy?',
+          options: ['Full launch — you\'ve tested in staging thoroughly', 'Shadow mode first (run alongside existing system without affecting users), then gradual traffic ramp', 'Launch to internal employees only, then all users', 'A/B test: 50% model, 50% old system'],
+          answer: 1,
+          explanation: 'Shadow mode lets you catch prediction quality and latency issues with zero user impact. It\'s the gold standard for high-stakes ML deployments where errors have real consequences.'
+        },
+        {
+          topic: 'Feature Engineering',
+          q: 'Your ML model uses "time spent on page" as a feature to predict purchase intent. What\'s the risk?',
+          options: ['Time spent is too easy to game by competitors', 'High time-on-page could indicate confusion, not intent — the feature might encode the wrong signal', 'The feature is too slow to compute in real-time', 'Legal may have issues with tracking time on page'],
+          answer: 1,
+          explanation: 'Features can encode unintended correlations. "Time on page" conflates engagement with confusion. PMs must interrogate what features actually measure, not just their correlation with the label.'
+        },
+      ],
+      data: [
+        {
+          topic: 'Data Product Ownership',
+          q: 'Two teams are measuring "active users" differently and getting conflicting numbers. What do you do?',
+          options: ['Let each team use their own definition — context differs', 'Convene both teams to agree on a single canonical definition, document it, and enforce it in the data warehouse', 'Pick one team\'s definition arbitrarily', 'Escalate to the data engineering team to decide'],
+          answer: 1,
+          explanation: 'Metric alignment is a core Data PM responsibility. Conflicting definitions erode trust in data. A canonical definition — agreed and enforced — is the only durable solution.'
+        },
+        {
+          topic: 'Data Quality',
+          q: 'A business team reports a dashboard shows 0 sales for yesterday. What\'s your first step?',
+          options: ['Assume it\'s correct and alert the sales team', 'Check whether the pipeline ran — data issues cause metric drops far more often than actual business drops', 'Rebuild the dashboard', 'Ask the sales team what happened'],
+          answer: 1,
+          explanation: 'Zeroes in dashboards are almost always pipeline failures, not business reality. A Data PM\'s first instinct is to check data health before drawing business conclusions.'
+        },
+        {
+          topic: 'Governance & Access',
+          q: 'A junior analyst requests access to raw user PII data for a report. What do you do?',
+          options: ['Grant it — they need it for their work', 'Provide a pre-aggregated, anonymised dataset that meets their reporting need without exposing raw PII', 'Deny it entirely', 'Ask their manager to approve'],
+          answer: 1,
+          explanation: 'Data PMs protect user data by providing the minimum necessary access. An anonymised summary often serves the business need without the compliance risk of raw PII access.'
+        },
+        {
+          topic: 'Metrics Alignment',
+          q: 'Leadership wants to track "engagement" but hasn\'t defined it. What do you do?',
+          options: ['Use DAU/MAU — that\'s the industry standard', 'Facilitate a session to define what behaviour constitutes value for the user and the business, then propose a metric that captures that', 'Build a dashboard with 10 engagement metrics and let them choose', 'Use time-on-site as a proxy'],
+          answer: 1,
+          explanation: 'Metrics should reflect value, not just activity. Facilitating a definition conversation first ensures the metric actually measures what matters — not just what\'s easy to count.'
+        },
+        {
+          topic: 'Data Thinking',
+          q: 'Your report shows conversion rate increased from 3% to 4%. A stakeholder says "great, we grew 1%." What do you clarify?',
+          options: ['Agree — a 1 percentage point increase is good', 'Clarify that it\'s a 33% relative increase (1/3), which is the more meaningful way to frame growth in conversion rates', 'Say nothing — they\'re not wrong', 'Rerun the numbers to double-check'],
+          answer: 1,
+          explanation: 'Data PMs communicate numbers precisely. A 1pp absolute change and 33% relative change tell very different stories. Framing matters for decision-making.'
+        },
+        {
+          topic: 'Metrics Definition',
+          q: 'What is the key difference between a leading indicator and a lagging indicator?',
+          options: ['Leading indicators are more accurate', 'Leading indicators predict future outcomes; lagging indicators confirm past results', 'Lagging indicators are tracked in real time', 'Leading indicators are only useful for sales'],
+          answer: 1,
+          explanation: 'Leading indicators (e.g. feature adoption rate) let you course-correct before outcomes solidify. Lagging indicators (e.g. quarterly revenue) confirm what already happened — too late to change.'
+        },
+        {
+          topic: 'Data Governance',
+          q: 'A team wants to create their own data mart outside the central data warehouse because "IT is too slow." What\'s the risk?',
+          options: ['None — faster data access is always better', 'Data silos emerge with inconsistent definitions, creating conflicting metrics across the business', 'The central team loses budget justification', 'The data mart will be less secure'],
+          answer: 1,
+          explanation: 'Shadow data systems create the classic data silo problem. Different teams with different numbers make aligned decision-making impossible. Governance exists to prevent this.'
+        },
+        {
+          topic: 'Analytics Infrastructure',
+          q: 'Your company is choosing between building a custom analytics pipeline vs buying a vendor tool. What\'s the most important factor?',
+          options: ['Cost — always choose the cheapest option', 'Whether your use case is common enough that a vendor solves it well, vs differentiated enough to justify build costs', 'Brand name of the vendor', 'What competitors are using'],
+          answer: 1,
+          explanation: 'Build vs buy is about competitive differentiation. If the problem is solved well by vendors, buy and focus engineering on what\'s unique to your business.'
+        },
+        {
+          topic: 'Data Democratisation',
+          q: 'Non-technical stakeholders frequently request custom reports from your data team, slowing their roadmap. What do you do?',
+          options: ['Hire more data analysts to handle requests', 'Build self-serve dashboards and train stakeholders to answer their own questions', 'Create an SLA and prioritise requests by business impact', 'Decline low-impact requests'],
+          answer: 1,
+          explanation: 'Self-serve data tools scale access without scaling headcount. The best data PMs reduce dependency on the data team by enabling others to answer their own questions.'
+        },
+      ],
+    };
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const countParam = parseInt(urlParams.get('count')) || null;
+    const fromCtx = urlParams.get('from') || null;
+
+    const allQ = QUESTIONS[role] || QUESTIONS.growth;
+    const questions = countParam ? allQ.slice(0, countParam) : allQ;
+    let currentQ = 0;
+    let selectedOption = null;
+    let score = 0;
+    const answers = [];
+
+    function render() {
+      const q = questions[currentQ];
+      const total = questions.length;
+
+      document.getElementById('mcqCounter').textContent = `Question ${currentQ + 1} of ${total}`;
+      document.getElementById('mcqProgressFill').style.width = ((currentQ / total) * 100) + '%';
+      document.getElementById('mcqTopic').textContent = q.topic;
+      document.getElementById('mcqQuestion').textContent = q.q;
+      document.getElementById('mcqFeedback').classList.add('hidden');
+      document.getElementById('nextBtn').disabled = true;
+      selectedOption = null;
+
+      const optionsEl = document.getElementById('mcqOptions');
+      optionsEl.innerHTML = q.options.map((opt, i) =>
+        `<button class="mcq-option" data-idx="${i}" onclick="selectOption(this, ${i})">${opt}</button>`
+      ).join('');
+    }
+
+    function selectOption(btn, idx) {
+      if (document.querySelector('.mcq-option.answered')) return; // already answered
+
+      document.querySelectorAll('.mcq-option').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedOption = idx;
+
+      const q = questions[currentQ];
+      const correct = idx === q.answer;
+
+      // Mark all options
+      document.querySelectorAll('.mcq-option').forEach((b, i) => {
+        b.classList.add('answered');
+        if (i === q.answer) b.classList.add('correct');
+        else if (i === idx && !correct) b.classList.add('wrong');
+      });
+
+      // Feedback
+      const fb = document.getElementById('mcqFeedback');
+      fb.textContent = (correct ? '✓ Correct! ' : '✗ Not quite. ') + q.explanation;
+      fb.className = 'mcq-feedback ' + (correct ? 'feedback-correct' : 'feedback-wrong');
+
+      if (correct) score++;
+      answers.push({ q: q.q, selected: q.options[idx], correct, topic: q.topic });
+
+      document.getElementById('nextBtn').disabled = false;
+    }
+
+    function nextQuestion() {
+      if (currentQ < questions.length - 1) {
+        currentQ++;
+        render();
+      } else {
+        showResults();
+      }
+    }
+
+    function skipQuestion() {
+      answers.push({ q: questions[currentQ].q, selected: null, correct: false, topic: questions[currentQ].topic });
+      if (currentQ < questions.length - 1) {
+        currentQ++;
+        render();
+      } else {
+        showResults();
+      }
+    }
+
+    function showResults() {
+      const pct = Math.round((score / questions.length) * 100);
+      const boost = Math.round(pct * 0.3);
+      const finalScore = Math.min(baseScore + boost, 99);
+
+      sessionStorage.setItem('pathpm_score', finalScore);
+
+      document.getElementById('mcqProgressFill').style.width = '100%';
+      document.getElementById('mcqCounter').textContent = 'Complete!';
+
+      document.getElementById('resultsSub').textContent =
+        `You got ${score} of ${questions.length} right. Your PM readiness score has been updated.`;
+
+      // Animate score
+      const scoreEl = document.getElementById('resultsScore');
+      let count = baseScore;
+      const interval = setInterval(() => {
+        if (count >= finalScore) { clearInterval(interval); return; }
+        count++;
+        scoreEl.textContent = count;
+      }, 30);
+
+      setTimeout(() => {
+        document.getElementById('resultsBarFill').style.width = finalScore + '%';
+      }, 300);
+
+      // Breakdown by topic
+      const breakdown = answers.map(a =>
+        `<div class="result-topic ${a.correct ? 'rt-pass' : 'rt-fail'}">
+          <span>${a.correct ? '✓' : '✗'}</span> ${a.topic}
+        </div>`
+      ).join('');
+      document.getElementById('resultsBreakdown').innerHTML = breakdown;
+
+      // Update result buttons based on context
+      const actionsEl = document.querySelector('.results-actions');
+      if (countParam === 10) {
+        // Came from dashboard Start Quiz — go back to dashboard
+        actionsEl.innerHTML = `
+          <button class="btn-primary large" onclick="window.location.href='dashboard.html'">
+            Back to Dashboard →
+          </button>`;
+      } else {
+        // Normal onboarding OR switch role — go to case study next
+        actionsEl.innerHTML = `
+          <button class="btn-primary large" onclick="window.location.href='case-study.html'">
+            Next: Case Study &nbsp;→
+          </button>`;
+      }
+
+      document.getElementById('mcqResults').classList.remove('hidden');
+
+      // ── Save to Supabase ──────────────────────────
+      (async () => {
+        const user = await getCurrentUser();
+        if (!user) return;
+
+        // Insert assessment summary
+        const { data: assessment } = await sb.from('mcq_assessments').insert({
+          user_id:         user.id,
+          role_key:        role,
+          total_questions: questions.length,
+          correct_answers: score,
+          pct_correct:     pct,
+          score_before:    baseScore,
+          score_after:     finalScore,
+          source:          countParam === 10 ? 'dashboard_quiz' : fromCtx === 'switch' ? 'switch_role' : 'choose_role'
+        }).select('id').single();
+
+        // Insert individual answers
+        if (assessment?.id) {
+          const rows = answers.map(a => ({
+            assessment_id:   assessment.id,
+            user_id:         user.id,
+            topic:           a.topic,
+            question_text:   a.q,
+            selected_option: a.selected || null,
+            is_correct:      a.correct,
+            skipped:         a.selected === null
+          }));
+          await sb.from('mcq_answers').insert(rows);
+        }
+
+        // Update overall readiness score
+        await updateScore(user.id, finalScore);
+      })();
+    }
+
+    function saveProgress() {
+      sessionStorage.setItem('pathpm_mcq_answers', JSON.stringify(answers));
+      showToast('Progress saved!');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2500);
+    }
+
+    // Init
+    render();
+  </script>
+
+  <div class="toast hidden" id="toast"><span class="toast-icon">✓</span><span id="toast-msg">Progress saved!</span></div>
+</body>
+</html>

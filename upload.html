@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPM – Upload Resume</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body class="onboarding-page">
+
+  <!-- NAV -->
+  <nav class="onboarding-nav">
+    <a href="dashboard.html" class="logo on-logo">
+      <span class="logo-dot"></span> PathPM
+    </a>
+    <div class="stepper">
+      <div class="step active">
+        <span class="step-bubble active">1</span>
+        <span class="step-name">Upload Resume</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step">
+        <span class="step-bubble">2</span>
+        <span class="step-name muted">Choose Role</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step">
+        <span class="step-bubble">3</span>
+        <span class="step-name muted">Assessment</span>
+      </div>
+    </div>
+    <div class="nav-user">
+      <span class="user-name" id="nav-username"></span>
+      <div class="user-avatar" id="nav-avatar">?</div>
+      <button class="signout-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </nav>
+
+  <!-- CONTENT -->
+  <main class="onboarding-main">
+    <span class="step-badge">Step 1 of 3 · Takes less than a minute</span>
+    <h1 class="onboarding-title">Let's start with your resume</h1>
+    <p class="onboarding-sub">Upload your latest resume so we can analyse your background and build a personalised PM roadmap for you.</p>
+
+    <div class="upload-card">
+
+      <!-- DROP ZONE -->
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".pdf,.docx" hidden />
+        <div class="drop-icon" id="dropIcon">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="19" stroke="#00a86b" stroke-width="1.5"/>
+            <path d="M20 27V13M20 13l-5 5M20 13l5 5" stroke="#00a86b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <p class="drop-title" id="dropTitle">Drag and drop your resume here</p>
+        <p class="drop-sub">or <a href="#" class="link-green" id="browseLink">click to browse</a></p>
+        <p class="drop-hint">PDF or DOCX only &nbsp;·&nbsp; Max 5 MB</p>
+        <div class="file-selected hidden" id="fileSelected">
+          <span class="file-icon">📄</span>
+          <div class="file-meta">
+            <span id="fileName">resume.pdf</span>
+            <span id="fileSize" style="font-size:0.78rem;color:var(--text-muted);margin-left:8px;"></span>
+          </div>
+          <button class="remove-file" onclick="removeFile(event)">✕</button>
+        </div>
+      </div>
+
+      <!-- VALIDATION CHECKLIST (shown after file picked) -->
+      <div id="validationChecklist" class="hidden" style="margin:12px 0 4px;display:flex;flex-direction:column;gap:6px;">
+        <div class="check-item" id="chk-type">
+          <span class="chk-icon">⬜</span>
+          <span class="chk-label">PDF or DOCX format</span>
+        </div>
+        <div class="check-item" id="chk-size">
+          <span class="chk-icon">⬜</span>
+          <span class="chk-label">Under 5 MB</span>
+        </div>
+        <div class="check-item" id="chk-notempty">
+          <span class="chk-icon">⬜</span>
+          <span class="chk-label">File has content (not empty)</span>
+        </div>
+      </div>
+
+      <p class="privacy-note">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3.5V7c0 3 2.2 5.5 5 6 2.8-.5 5-3 5-6V3.5L7 1z" stroke="#9ca3af" stroke-width="1.2"/></svg>
+        Stored securely and only used to personalise your roadmap.
+      </p>
+
+      <p class="upload-error hidden" id="uploadError"></p>
+
+      <button class="btn-upload" id="uploadBtn" onclick="handleUpload()">
+        Upload Resume &nbsp;→
+      </button>
+
+      <!-- PREVIOUS UPLOADS -->
+      <div id="prevUploadsSection" class="hidden" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+        <p style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:10px;letter-spacing:0.04em;">PREVIOUS UPLOADS</p>
+        <div id="prevUploadsList" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+
+      <div class="trust-row">
+        <span>🔒 Encrypted storage</span>
+        <span>🚫 Never shared with employers</span>
+        <span>✅ Multiple resumes supported</span>
+      </div>
+    </div>
+  </main>
+
+  <style>
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+    }
+    .chk-icon { font-size: 0.9rem; }
+    .chk-label { color: var(--text-muted); }
+    .check-item.pass .chk-label { color: var(--green); }
+    .check-item.fail .chk-label { color: #ef4444; }
+    .file-meta { display: flex; align-items: center; flex: 1; }
+    .prev-upload-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--light-bg);
+      border-radius: 8px;
+      font-size: 0.83rem;
+    }
+    .prev-upload-row .pf-name { flex: 1; font-weight: 500; color: var(--dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .prev-upload-row .pf-date { color: var(--text-muted); font-size: 0.77rem; white-space: nowrap; }
+    .prev-upload-row .pf-use {
+      background: none; border: 1px solid var(--green);
+      color: var(--green); font-size: 0.77rem; font-weight: 600;
+      padding: 3px 10px; border-radius: 6px; cursor: pointer;
+      white-space: nowrap;
+    }
+    .prev-upload-row .pf-use:hover { background: var(--green); color: #fff; }
+    .prev-upload-row .pf-del {
+      background: none; border: 1px solid #fca5a5;
+      color: #ef4444; font-size: 0.77rem; font-weight: 600;
+      padding: 3px 8px; border-radius: 6px; cursor: pointer;
+      white-space: nowrap; line-height: 1;
+    }
+    .prev-upload-row .pf-del:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+    .prev-upload-row .pf-del:disabled { opacity: 0.5; cursor: not-allowed; }
+  </style>
+
+  <script>
+    // ── Resume analysis engine ────────────────────────────────────
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    async function extractText(file) {
+      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+        try {
+          const buf = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+          let text = '';
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text += content.items.map(it => it.str).join(' ') + '\n';
+          }
+          return text;
+        } catch (e) { return ''; }
+      }
+      // DOCX: read as binary, strip XML tags to get plain text
+      try {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let raw = '';
+        for (let i = 0; i < bytes.length; i++) {
+          if (bytes[i] >= 32 && bytes[i] < 127) raw += String.fromCharCode(bytes[i]);
+        }
+        return raw.replace(/<[^>]+>/g, ' ');
+      } catch (e) { return ''; }
+    }
+
+    const SKILL_MAP = {
+      'Product Roadmap':       ['roadmap', 'product roadmap'],
+      'User Research':         ['user research', 'ux research', 'usability testing', 'user interview'],
+      'Stakeholder Mgmt':      ['stakeholder', 'cross-functional', 'cross functional'],
+      'Agile / Scrum':         ['agile', 'scrum', 'sprint', 'kanban', 'jira'],
+      'Data Analysis':         ['data analysis', 'data-driven', 'analytics', 'metrics'],
+      'A/B Testing':           ['a/b test', 'ab test', 'experimentation'],
+      'SQL':                   ['sql', 'mysql', 'postgresql', 'bigquery', 'redshift'],
+      'Python':                ['python'],
+      'Growth':                ['growth hacking', 'growth marketing', 'acquisition', 'activation', 'retention'],
+      'API / Integrations':    ['api', 'rest api', 'graphql', 'integration'],
+      'Machine Learning':      ['machine learning', 'deep learning', 'neural network', 'nlp', 'llm'],
+      'Figma / Design':        ['figma', 'sketch', 'wireframe', 'prototyp'],
+      'Go-to-Market':          ['go-to-market', 'gtm', 'product launch', 'launch'],
+      'Prioritisation':        ['prioriti', 'backlog grooming', 'moscow', 'rice framework'],
+      'Business Analysis':     ['business analysis', 'business analyst', 'requirements gathering', 'brd'],
+      'Product Strategy':      ['product strategy', 'product vision', 'vision'],
+      'Funnel Analysis':       ['funnel', 'conversion rate', 'drop-off', 'churn'],
+      'Data Pipelines':        ['etl', 'data pipeline', 'data warehouse', 'tableau', 'power bi'],
+    };
+
+    const ROLE_KEYWORDS = {
+      technical:  ['engineer', 'developer', 'software', 'backend', 'frontend', 'api', 'architecture', 'infrastructure', 'devops', 'cloud', 'code', 'programming', 'technical lead'],
+      growth:     ['growth', 'marketing', 'acquisition', 'retention', 'funnel', 'conversion', 'cac', 'ltv', 'activation', 'engagement', 'a/b test', 'revenue'],
+      data:       ['sql', 'data analyst', 'analytics', 'tableau', 'power bi', 'etl', 'data pipeline', 'reporting', 'business intelligence', 'data warehouse'],
+      aiml:       ['machine learning', 'deep learning', 'neural', 'nlp', 'ai ', ' ml ', 'data science', 'tensorflow', 'pytorch', 'llm', 'generative ai'],
+      platform:   ['platform', 'infrastructure', 'internal tools', 'developer experience', 'b2b', 'saas', 'enterprise', 'api platform', 'developer portal'],
+      generalist: ['product manager', 'product owner', 'scrum', 'agile', 'roadmap', 'sprint', 'backlog', 'cross-functional'],
+    };
+
+    const ROLE_LABELS = {
+      technical: 'Technical PM', growth: 'Growth PM', data: 'Data PM',
+      aiml: 'AI/ML PM', platform: 'Platform PM', generalist: 'Generalist PM'
+    };
+
+    const INDUSTRY_KEYWORDS = {
+      'Fintech':       ['fintech', 'payments', 'banking', 'finance', 'lending', 'insurance', 'wealth'],
+      'E-commerce':    ['e-commerce', 'ecommerce', 'retail', 'marketplace', 'shopping'],
+      'SaaS / B2B':    ['saas', 'b2b', 'enterprise software', 'crm', 'erp'],
+      'Healthcare':    ['health', 'medical', 'hospital', 'pharma', 'clinical'],
+      'Consulting':    ['consulting', 'advisory', 'strategy consulting', 'deloitte', 'mckinsey', 'bcg', 'accenture', 'kpmg', 'pwc'],
+      'Edtech':        ['education', 'edtech', 'learning', 'e-learning', 'lms'],
+      'Logistics':     ['logistics', 'supply chain', 'delivery', 'warehouse', 'shipping'],
+      'Consumer Tech': ['consumer', 'mobile app', 'social', 'media', 'entertainment'],
+    };
+
+    function analyzeText(text) {
+      const lower = text.toLowerCase();
+
+      // Score PM roles
+      const scores = {};
+      for (const [role, keywords] of Object.entries(ROLE_KEYWORDS)) {
+        scores[role] = keywords.reduce((acc, kw) => {
+          const matches = (lower.match(new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+          return acc + matches;
+        }, 0);
+      }
+      const recommendedRole = Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
+
+      // Extract skills
+      const skills = [];
+      for (const [label, keywords] of Object.entries(SKILL_MAP)) {
+        if (keywords.some(kw => lower.includes(kw))) skills.push(label);
+        if (skills.length >= 8) break;
+      }
+      if (skills.length === 0) skills.push('Product Roadmap', 'Stakeholder Mgmt', 'Agile / Scrum');
+
+      // Detect industry
+      let industry = 'Technology';
+      for (const [label, keywords] of Object.entries(INDUSTRY_KEYWORDS)) {
+        if (keywords.some(kw => lower.includes(kw))) { industry = label; break; }
+      }
+
+      // Try to extract current role — look for common job title patterns
+      const titlePatterns = [
+        /(?:i am|i'm|currently|working as|position[:\s]+|title[:\s]+|role[:\s]+)\s*([A-Z][a-zA-Z\s]{3,35})/i,
+        /((?:senior|lead|principal|staff|junior|associate)?\s*(?:product manager|software engineer|data analyst|business analyst|developer|designer|consultant|analyst|engineer|manager|director|vp|head)[^,\n]{0,40})/i,
+      ];
+      let currentRole = '';
+      for (const pattern of titlePatterns) {
+        const match = text.match(pattern);
+        if (match) { currentRole = match[1].trim().replace(/\s+/g, ' ').slice(0, 40); break; }
+      }
+
+      // Try to extract company name — look for "at <Company>" patterns
+      let company = '';
+      const companyMatch = text.match(/(?:at|@|,\s*)([A-Z][a-zA-Z\s&.]{2,30})(?:\s*[|\-·•,\n])/);
+      if (companyMatch) company = companyMatch[1].trim();
+
+      // Try to estimate years of experience from year ranges
+      const yearMatches = text.match(/20\d{2}/g) || [];
+      const years = yearMatches.map(Number).filter(y => y >= 2010 && y <= new Date().getFullYear());
+      let yearsExp = '';
+      if (years.length >= 2) {
+        const span = Math.max(...years) - Math.min(...years);
+        yearsExp = span <= 1 ? '< 1 year' : span + ' years';
+      }
+
+      // Extract full work experience entries
+      const experiences = extractExperiences(text);
+
+      return { recommendedRole, skills, industry, currentRole, company, yearsExp, scores, experiences };
+    }
+
+    function extractExperiences(text) {
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      const exps   = [];
+      const dateRe = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*)?(?:20\d{2})\s*[-–—to]+\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*)?(?:20\d{2}|present|current)/i;
+      const bulletRe = /^[•\-*◦▪·]\s+.{8,}/;
+      const skipRe   = /^(education|skills|certifications?|projects?|summary|objective|references?|publications?|awards?|interests?|languages?)/i;
+
+      let cur = null;
+      let inExp = false;
+      const expHeaderRe = /^(experience|work experience|employment|professional experience|career history|work history)/i;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const next = lines[i + 1] || '';
+
+        if (expHeaderRe.test(line)) { inExp = true; continue; }
+        if (inExp && skipRe.test(line)) break;
+
+        const lineHasDate = dateRe.test(line);
+        const nextHasDate = dateRe.test(next);
+        const isBullet    = bulletRe.test(line);
+
+        // Detect start of a new experience entry
+        if (!isBullet && (lineHasDate || (!inExp && nextHasDate)) && line.length > 3 && line.length < 120) {
+          if (cur) exps.push(cur);
+
+          // Split "Title | Company | Dates" or "Title — Company"
+          const parts = line.split(/\s*[|·—]\s*/).map(p => p.trim());
+          let title   = parts[0] || line;
+          let co      = parts[1] || '';
+
+          // Pull dates out
+          const dm = line.match(dateRe);
+          let dates = dm ? dm[0] : '';
+          if (dm) {
+            title = title.replace(dateRe, '').replace(/[-–—|·,]+$/, '').trim();
+            co    = co.replace(dateRe, '').replace(/[-–—|·,]+$/, '').trim();
+          } else if (nextHasDate) {
+            const ndm = next.match(dateRe);
+            if (ndm) { dates = ndm[0]; i++; }
+          }
+
+          if (title.length > 2) {
+            cur = { title: title.slice(0, 60), company: co.slice(0, 50), dates: dates.slice(0, 25), bullets: [] };
+            inExp = true;
+          }
+        } else if (cur && isBullet) {
+          const b = line.replace(/^[•\-*◦▪·]\s*/, '').trim();
+          if (b.length > 10 && b.length < 280 && cur.bullets.length < 5) cur.bullets.push(b);
+        } else if (cur && !isBullet && !cur.company && line.length < 60 && /^[A-Z]/.test(line) && !dateRe.test(line)) {
+          cur.company = line;
+        }
+      }
+
+      if (cur) exps.push(cur);
+      return exps.filter(e => e.title && (e.bullets.length > 0 || e.company || e.dates)).slice(0, 4);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    const ALLOWED_TYPES = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    const ALLOWED_EXT  = /\.(pdf|docx)$/i;
+    const MAX_SIZE     = 5 * 1024 * 1024; // 5 MB
+    const MIN_SIZE     = 1024;             // 1 KB — catches empty/corrupt files
+
+    let selectedFile = null;
+    let currentUser  = null;
+
+    // ── Init ──────────────────────────────────────────────────────
+    (async () => {
+      currentUser = await requireAuth();
+      if (!currentUser) return;
+
+      // Show name
+      const { data: profile } = await sb.from('profiles').select('name').eq('id', currentUser.id).maybeSingle();
+      const name = profile?.name || currentUser.user_metadata?.name || currentUser.email.split('@')[0];
+      sessionStorage.setItem('pathpm_user', JSON.stringify({ name, email: currentUser.email }));
+      document.getElementById('nav-username').textContent = name;
+      document.getElementById('nav-avatar').textContent = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+      // Load previous uploads
+      loadPreviousUploads(currentUser.id);
+    })();
+
+    async function loadPreviousUploads(userId) {
+      const { data } = await sb
+        .from('resume_uploads')
+        .select('id, file_name, file_size, storage_path, uploaded_at')
+        .eq('user_id', userId)
+        .order('uploaded_at', { ascending: false })
+        .limit(5);
+
+      if (!data || data.length === 0) return;
+
+      document.getElementById('prevUploadsSection').classList.remove('hidden');
+      const list = document.getElementById('prevUploadsList');
+      list.innerHTML = '';
+      data.forEach(row => {
+        const date = new Date(row.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        const size = row.file_size ? (row.file_size / 1024).toFixed(0) + ' KB' : '';
+        const div = document.createElement('div');
+        div.className = 'prev-upload-row';
+        div.id = `upload-row-${row.id}`;
+        div.innerHTML = `
+          <span>📄</span>
+          <span class="pf-name" title="${row.file_name}">${row.file_name}</span>
+          <span class="pf-date">${date}${size ? ' · ' + size : ''}</span>
+          <button class="pf-use" id="use-${row.id}" onclick="usePreviousResume('${row.id}', '${row.file_name}', '${row.storage_path || ''}')">Use this</button>
+          <button class="pf-del" id="del-${row.id}" onclick="deleteResume('${row.id}', '${row.storage_path || ''}')">🗑</button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    async function usePreviousResume(id, fileName, storagePath) {
+      const btn = document.getElementById('use-' + id);
+      if (btn) { btn.textContent = 'Analysing…'; btn.disabled = true; }
+
+      // Always clear stale data first so old resume never bleeds through
+      sessionStorage.removeItem('pathpm_resume_data');
+      sessionStorage.setItem('pathpm_resume', fileName);
+      sessionStorage.setItem('pathpm_resume_id', id);
+
+      try {
+        if (storagePath) {
+          // Download file from Supabase Storage and re-analyse it fresh
+          const { data: urlData } = await sb.storage.from('Resumes').createSignedUrl(storagePath, 120);
+          if (urlData?.signedUrl) {
+            const resp = await fetch(urlData.signedUrl);
+            const blob = await resp.blob();
+            const fileType = fileName.toLowerCase().endsWith('.pdf')
+              ? 'application/pdf'
+              : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            const file = new File([blob], fileName, { type: fileType });
+
+            const resumeText = await extractText(file);
+            const analysis   = analyzeText(resumeText);
+
+            const userName   = currentUser.user_metadata?.name || currentUser.email.split('@')[0];
+            const totalScore = Object.values(analysis.scores).reduce((a, b) => a + b, 0);
+            const lowContent = totalScore < 3 || (!analysis.currentRole && analysis.skills.length <= 3);
+
+            sessionStorage.setItem('pathpm_resume_data', JSON.stringify({
+              name:            userName,
+              currentRole:     analysis.currentRole,
+              company:         analysis.company,
+              industry:        analysis.industry,
+              yearsExp:        analysis.yearsExp,
+              skills:          analysis.skills,
+              recommendedRole: analysis.recommendedRole,
+              scores:          analysis.scores,
+              lowContent:      lowContent,
+              experiences:     analysis.experiences || [],
+            }));
+          }
+        }
+      } catch(e) {
+        console.warn('Could not re-analyse previous resume:', e);
+        // sessionStorage.resume_data is already cleared — processing.html will show blanks,
+        // not stale old data
+      }
+
+      window.location.href = 'processing.html';
+    }
+
+    async function deleteResume(id, storagePath) {
+      const btn = document.getElementById('del-' + id);
+      btn.disabled = true;
+      btn.textContent = '…';
+
+      // Delete from Storage (ignore error if file already gone)
+      if (storagePath) {
+        await sb.storage.from('Resumes').remove([storagePath]);
+      }
+
+      // Delete from DB
+      const { error } = await sb.from('resume_uploads').delete().eq('id', id);
+      if (error) {
+        btn.disabled = false;
+        btn.textContent = '🗑';
+        return;
+      }
+
+      // Remove row from UI
+      const row = document.getElementById('upload-row-' + id);
+      if (row) row.remove();
+
+      // Hide section if no rows left
+      const list = document.getElementById('prevUploadsList');
+      if (!list.children.length) {
+        document.getElementById('prevUploadsSection').classList.add('hidden');
+      }
+    }
+
+    // ── Drag & drop ───────────────────────────────────────────────
+    const dropZone  = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    let isPickerOpen = false;
+
+    function openPicker() {
+      if (isPickerOpen || selectedFile) return;
+      isPickerOpen = true;
+      fileInput.click();
+    }
+
+    // Reset the guard when focus returns to the page (user dismissed the dialog)
+    window.addEventListener('focus', () => { setTimeout(() => { isPickerOpen = false; }, 200); });
+
+    document.getElementById('browseLink').addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation(); // prevent bubbling to dropZone — stops double-open
+      openPicker();
+    });
+
+    dropZone.addEventListener('click', e => {
+      if (e.target.closest('.remove-file') || e.target.closest('.file-selected')) return;
+      openPicker();
+    });
+
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      if (e.dataTransfer.files[0]) validateAndShow(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => {
+      isPickerOpen = false;
+      if (fileInput.files[0]) validateAndShow(fileInput.files[0]);
+    });
+
+    // ── Validation ────────────────────────────────────────────────
+    function setCheck(id, state) {
+      // state: 'pass' | 'fail' | 'pending'
+      const el = document.getElementById(id);
+      el.classList.remove('pass', 'fail');
+      if (state === 'pass') { el.classList.add('pass'); el.querySelector('.chk-icon').textContent = '✅'; }
+      else if (state === 'fail') { el.classList.add('fail'); el.querySelector('.chk-icon').textContent = '❌'; }
+      else { el.querySelector('.chk-icon').textContent = '⬜'; }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('uploadError');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    function clearError() {
+      document.getElementById('uploadError').classList.add('hidden');
+    }
+
+    function validateAndShow(file) {
+      clearError();
+      document.getElementById('validationChecklist').classList.remove('hidden');
+
+      const typeOk  = ALLOWED_TYPES.includes(file.type) || ALLOWED_EXT.test(file.name);
+      const sizeOk  = file.size <= MAX_SIZE;
+      const notEmpty = file.size >= MIN_SIZE;
+
+      setCheck('chk-type',     typeOk     ? 'pass' : 'fail');
+      setCheck('chk-size',     sizeOk     ? 'pass' : 'fail');
+      setCheck('chk-notempty', notEmpty   ? 'pass' : 'fail');
+
+      if (!typeOk) {
+        showError('⚠ Only PDF and DOCX files are accepted. Please upload your resume in one of these formats.');
+        resetDropZone();
+        return;
+      }
+      if (!notEmpty) {
+        showError('⚠ This file appears to be empty or corrupt. Please try a different file.');
+        resetDropZone();
+        return;
+      }
+      if (!sizeOk) {
+        showError('⚠ File is too large (' + (file.size / 1024 / 1024).toFixed(1) + ' MB). Maximum allowed size is 5 MB.');
+        resetDropZone();
+        return;
+      }
+
+      // All checks passed
+      selectedFile = file;
+      const sizeFmt = file.size > 1024 * 1024
+        ? (file.size / 1024 / 1024).toFixed(1) + ' MB'
+        : (file.size / 1024).toFixed(0) + ' KB';
+
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileSize').textContent = sizeFmt;
+      document.getElementById('fileSelected').classList.remove('hidden');
+      document.getElementById('dropTitle').textContent = 'File ready to upload';
+      dropZone.classList.add('has-file');
+    }
+
+    function resetDropZone() {
+      selectedFile = null;
+      fileInput.value = '';
+      document.getElementById('fileSelected').classList.add('hidden');
+      document.getElementById('dropTitle').textContent = 'Drag and drop your resume here';
+      dropZone.classList.remove('has-file');
+    }
+
+    function removeFile(e) {
+      e.stopPropagation();
+      resetDropZone();
+      clearError();
+      document.getElementById('validationChecklist').classList.add('hidden');
+      setCheck('chk-type', 'pending');
+      setCheck('chk-size', 'pending');
+      setCheck('chk-notempty', 'pending');
+    }
+
+    // ── Upload ────────────────────────────────────────────────────
+    async function handleUpload() {
+      if (!selectedFile) {
+        showError('⚠ Please select your resume before continuing.');
+        dropZone.classList.add('shake');
+        setTimeout(() => dropZone.classList.remove('shake'), 500);
+        return;
+      }
+
+      // Clear any stale resume data immediately so old results never bleed through
+      sessionStorage.removeItem('pathpm_resume_data');
+
+      const btn = document.getElementById('uploadBtn');
+      btn.disabled = true;
+      btn.textContent = 'Uploading…';
+      clearError();
+
+      try {
+        if (!currentUser) { currentUser = await requireAuth(); }
+
+        // Upload to Supabase Storage
+        const ext       = selectedFile.name.split('.').pop();
+        const safeName  = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filePath  = `${currentUser.id}/${Date.now()}_${safeName}`;
+
+        const { data: storageData, error: storageErr } = await sb.storage
+          .from('Resumes')
+          .upload(filePath, selectedFile, { cacheControl: '3600', upsert: false });
+
+        if (storageErr) {
+          showError('⚠ Upload failed: ' + storageErr.message);
+          btn.disabled = false;
+          btn.textContent = 'Upload Resume →';
+          return;
+        }
+
+        // Save metadata to resume_uploads table
+        const { data: row, error: dbErr } = await sb.from('resume_uploads').insert({
+          user_id:      currentUser.id,
+          file_name:    selectedFile.name,
+          file_size:    selectedFile.size,
+          file_type:    selectedFile.type || (ext === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+          storage_path: storageData.path,
+          uploaded_at:  new Date().toISOString()
+        }).select('id').single();
+
+        if (dbErr) console.warn('DB save error:', dbErr.message);
+
+        // Extract text & analyse resume (runs in parallel with upload)
+        btn.textContent = 'Analysing…';
+        const resumeText = await extractText(selectedFile);
+        const analysis   = analyzeText(resumeText);
+
+        // Persist profile to user_resume_profiles
+        const userName = currentUser.user_metadata?.name || currentUser.email.split('@')[0];
+        await sb.from('user_resume_profiles').upsert({
+          user_id:          currentUser.id,
+          job_role:         analysis.currentRole  || null,
+          company:          analysis.company       || null,
+          industry:         analysis.industry      || null,
+          years_experience: analysis.yearsExp       || null,
+          skills:           analysis.skills.join(', '),
+          resume_filename:  selectedFile.name,
+          updated_at:       new Date().toISOString()
+        }, { onConflict: 'user_id' });
+
+        // Detect if resume has very little PM-relevant content
+        const totalScore  = Object.values(analysis.scores).reduce((a, b) => a + b, 0);
+        const lowContent  = totalScore < 3 || (!analysis.currentRole && analysis.skills.length <= 3);
+
+        // Save to sessionStorage for choose-role.html / processing.html
+        sessionStorage.setItem('pathpm_resume',       selectedFile.name);
+        sessionStorage.setItem('pathpm_resume_id',    row?.id || '');
+        sessionStorage.setItem('pathpm_resume_data',  JSON.stringify({
+          name:            userName,
+          currentRole:     analysis.currentRole,
+          company:         analysis.company,
+          industry:        analysis.industry,
+          yearsExp:        analysis.yearsExp,
+          skills:          analysis.skills,
+          recommendedRole: analysis.recommendedRole,
+          scores:          analysis.scores,
+          lowContent:      lowContent,
+          experiences:     analysis.experiences || [],
+        }));
+        window.location.href = 'processing.html';
+
+      } catch (err) {
+        showError('⚠ Something went wrong. Please try again.');
+        btn.disabled = false;
+        btn.textContent = 'Upload Resume →';
+      }
+    }
+
+  </script>
+
+</body>
+</html>

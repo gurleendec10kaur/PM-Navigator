@@ -1,0 +1,14 @@
+# Design/research files — not needed for the live app
+stitch_*/
+All screens/
+Solution screens/
+content-research-output.md
+solution-doc.md
+solution.png
+solution_space_v8.docx
+Problem Statement.pdf
+CLAUDE.md
+
+# OS files
+.DS_Store
+Thumbs.db

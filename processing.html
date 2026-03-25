@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPM – Reading Your Background</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <style>
+    .low-content-notice {
+      display: flex; gap: 12px; align-items: flex-start;
+      background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px;
+      padding: 16px 18px; margin-top: 20px;
+      font-size: 0.84rem; color: #78350f; line-height: 1.6;
+      animation: fadeIn 0.5s ease;
+    }
+    .low-content-notice.hidden { display: none; }
+    .lcn-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+    .low-content-notice strong { display: block; margin-bottom: 4px; font-size: 0.9rem; }
+    .low-content-notice p { margin: 0; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  </style>
+</head>
+<body class="onboarding-page processing-bg">
+
+  <!-- NAV -->
+  <nav class="onboarding-nav">
+    <a href="dashboard.html" class="logo on-logo">
+      <span class="logo-dot"></span> PathPM
+    </a>
+    <div class="stepper">
+      <div class="step active">
+        <span class="step-bubble active pulse">1</span>
+        <span class="step-name">Uploading...</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step">
+        <span class="step-bubble">2</span>
+        <span class="step-name muted">Choose Role</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step">
+        <span class="step-bubble">3</span>
+        <span class="step-name muted">Assessment</span>
+      </div>
+    </div>
+    <div class="nav-progress-bar">
+      <div class="nav-progress-fill" id="navProgressFill"></div>
+    </div>
+    <div class="nav-user">
+      <div class="user-avatar" id="nav-avatar">YM</div>
+      <button class="signout-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </nav>
+
+  <!-- CONTENT -->
+  <main class="processing-main">
+    <div class="processing-card">
+      <div class="resume-icon">
+        <svg width="56" height="64" viewBox="0 0 56 64" fill="none">
+          <rect x="1" y="1" width="54" height="62" rx="5" fill="#f0faf5" stroke="#d1fae5" stroke-width="1.5"/>
+          <rect x="10" y="14" width="36" height="3" rx="1.5" fill="#a7f3d0"/>
+          <rect x="10" y="22" width="28" height="3" rx="1.5" fill="#d1fae5"/>
+          <rect x="10" y="30" width="32" height="3" rx="1.5" fill="#d1fae5"/>
+          <rect x="10" y="38" width="24" height="3" rx="1.5" fill="#d1fae5"/>
+          <rect x="10" y="46" width="30" height="3" rx="1.5" fill="#d1fae5"/>
+        </svg>
+      </div>
+
+      <h2 class="processing-title">Reading your background...</h2>
+      <p class="processing-sub">We're extracting your experience, domain, and skills. This takes about 5 seconds.</p>
+
+      <div class="processing-steps" id="processingSteps">
+        <div class="proc-step" id="step-1">
+          <div class="proc-icon pending" id="icon-1">
+            <span class="spinner"></span>
+          </div>
+          <div class="proc-text">
+            <strong>Current role detected</strong>
+            <span id="detail-1"></span>
+          </div>
+        </div>
+        <div class="proc-step" id="step-2">
+          <div class="proc-icon pending" id="icon-2">
+            <span class="spinner"></span>
+          </div>
+          <div class="proc-text">
+            <strong>Domain expertise identified</strong>
+            <span id="detail-2"></span>
+          </div>
+        </div>
+        <div class="proc-step" id="step-3">
+          <div class="proc-icon pending" id="icon-3">
+            <span class="spinner"></span>
+          </div>
+          <div class="proc-text">
+            <strong>Product-adjacent experience found</strong>
+            <span id="detail-3"></span>
+          </div>
+        </div>
+        <div class="proc-step" id="step-4">
+          <div class="proc-icon pending" id="icon-4">
+            <span class="spinner"></span>
+          </div>
+          <div class="proc-text">
+            <strong>Matching to PM role types...</strong>
+            <span id="detail-4"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="extraction-progress">
+        <div class="ep-header">
+          <span>EXTRACTION PROGRESS</span>
+          <span id="progressPct">0%</span>
+        </div>
+        <div class="ep-bar">
+          <div class="ep-fill" id="epFill"></div>
+        </div>
+      </div>
+
+<p class="secure-note">
+        🔒 Your resume is processed securely and never stored on our servers.
+      </p>
+    </div>
+  </main>
+
+  <footer class="processing-footer">Built by PathPM Career Architects · v2.41</footer>
+
+  <script>
+    // ── Read real data from sessionStorage ───────────────────────
+    const rd  = JSON.parse(sessionStorage.getItem('pathpm_resume_data') || '{}');
+    const usr = JSON.parse(sessionStorage.getItem('pathpm_user') || '{}');
+
+    // Restore avatar
+    const uName = rd.name || usr.name || '';
+    if (uName) {
+      document.getElementById('nav-avatar').textContent =
+        uName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+
+    // Build step details from actual analysis
+    const roleLabels = {
+      growth: 'Growth PM', technical: 'Technical PM', platform: 'Platform PM',
+      aiml: 'AI/ML PM', data: 'Data PM', generalist: 'Generalist PM'
+    };
+
+    const step1Detail = [rd.currentRole, rd.company, rd.yearsExp]
+      .filter(Boolean).join(' · ') || 'Professional background detected';
+
+    const step2Detail = rd.industry
+      ? rd.industry + (rd.yearsExp ? ' · ' + rd.yearsExp + ' of experience' : '')
+      : 'Domain identified from resume';
+
+    const topSkills = (rd.skills || []).slice(0, 3);
+    const step3Detail = topSkills.length
+      ? topSkills.join(' · ')
+      : 'Transferable skills identified';
+
+    const recRole    = rd.recommendedRole || 'generalist';
+    const step4Final = (roleLabels[recRole] || 'Generalist PM') + ' — best fit based on your background';
+
+    const steps = [
+      { id: 1, detail: step1Detail,              delay: 800  },
+      { id: 2, detail: step2Detail,              delay: 1800 },
+      { id: 3, detail: step3Detail,              delay: 3000 },
+      { id: 4, detail: 'Analysing PM fit score…', delay: 4200, loading: true },
+    ];
+
+    const progressTargets = [20, 45, 70, 100];
+    let currentProgress = 0;
+
+    function animateProgress(target, duration) {
+      const start = currentProgress;
+      const startTime = performance.now();
+      function update(now) {
+        const elapsed = now - startTime;
+        const t = Math.min(elapsed / duration, 1);
+        currentProgress = Math.round(start + (target - start) * t);
+        document.getElementById('progressPct').textContent = currentProgress + '%';
+        document.getElementById('epFill').style.width = currentProgress + '%';
+        document.getElementById('navProgressFill').style.width = currentProgress + '%';
+        if (t < 1) requestAnimationFrame(update);
+      }
+      requestAnimationFrame(update);
+    }
+
+    function completeStep(stepId, detail) {
+      const icon = document.getElementById('icon-' + stepId);
+      icon.classList.remove('pending');
+      icon.classList.add('done');
+      icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#00a86b"/><path d="M4.5 8l2.5 2.5 4.5-5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      document.getElementById('detail-' + stepId).textContent = detail;
+      document.getElementById('step-' + stepId).classList.add('completed');
+    }
+
+    function startProcessing() {
+      steps.forEach((s, i) => {
+        setTimeout(() => {
+          if (!s.loading) {
+            completeStep(s.id, s.detail);
+          } else {
+            document.getElementById('detail-' + s.id).textContent = '···';
+          }
+          animateProgress(progressTargets[i], 600);
+        }, s.delay);
+      });
+
+      // Complete step 4, optionally show low-content notice, then redirect
+      setTimeout(() => {
+        completeStep(4, step4Final);
+        animateProgress(100, 400);
+
+        setTimeout(() => {
+          try { history.replaceState(null, '', 'upload.html'); } catch(e) {}
+          window.location.href = 'choose-role.html';
+        }, 1200);
+      }, 5400);
+    }
+
+    startProcessing();
+  </script>
+
+</body>
+</html>

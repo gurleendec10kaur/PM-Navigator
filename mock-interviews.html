@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPM – Mock Interviews</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <style>
+    /* ── Webinar strip ── */
+    .webinar-strip { display: flex; gap: 14px; margin-bottom: 24px; overflow-x: auto; padding-bottom: 4px; }
+    .webinar-card { flex: 0 0 auto; min-width: 270px; background: linear-gradient(135deg,#f0fdf4,#dcfce7); border: 1px solid #86efac; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
+    .wc-eyebrow { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; color: #16a34a; text-transform: uppercase; }
+    .wc-title { font-size: 0.9rem; font-weight: 700; color: var(--dark); line-height: 1.35; }
+    .wc-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+    .wc-meta strong { color: var(--dark); }
+    .wc-register { align-self: flex-start; margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: #16a34a; background: #fff; border: 1px solid #86efac; border-radius: 20px; padding: 4px 12px; cursor: pointer; transition: background .2s; }
+    .wc-register:hover { background: #dcfce7; }
+
+    /* ── Filter bar ── */
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 20px; padding: 14px 18px; background: #fff; border: 1px solid var(--border); border-radius: 14px; }
+    .filter-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; color: var(--text-muted); text-transform: uppercase; white-space: nowrap; }
+    .filter-sep { width: 1px; height: 24px; background: var(--border); }
+    .filter-select { font-size: 0.8rem; color: var(--dark); background: var(--light-bg); border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; cursor: pointer; outline: none; }
+    .filter-select:focus { border-color: var(--green); }
+    .filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .filter-chip { font-size: 0.75rem; font-weight: 500; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--light-bg); color: var(--text-muted); cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .filter-chip.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
+    .filter-chip:hover:not(.active) { border-color: var(--green); color: var(--green); }
+    .filter-clear { font-size: 0.75rem; color: var(--text-muted); cursor: pointer; margin-left: auto; text-decoration: underline; white-space: nowrap; }
+    .filter-clear:hover { color: var(--dark); }
+
+    /* ── Interviewer grid ── */
+    .interviewer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+    .interviewer-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 10px; transition: box-shadow .2s, border-color .2s; }
+    .interviewer-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.08); border-color: var(--green); }
+    .interviewer-card.hidden-card { display: none !important; }
+    .ic-header { display: flex; align-items: center; gap: 12px; }
+    .ic-avatar { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.95rem; flex-shrink: 0; }
+    .ic-meta { flex: 1; }
+    .ic-meta strong { display: block; font-size: 0.9rem; color: var(--dark); }
+    .ic-meta span { font-size: 0.75rem; color: var(--text-muted); }
+    .ic-rating { font-size: 0.8rem; font-weight: 700; color: var(--dark); white-space: nowrap; }
+    .ic-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ic-tag { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em; background: var(--light-bg); color: var(--text-muted); padding: 3px 9px; border-radius: 20px; }
+    .ic-tag.free-tag { background: #dcfce7; color: #16a34a; }
+    .ic-quote { font-size: 0.78rem; color: var(--text-muted); font-style: italic; line-height: 1.5; flex: 1; }
+    .ic-exp { font-size: 0.72rem; color: var(--text-muted); }
+    .ic-exp strong { color: var(--dark); }
+    .ic-actions { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+    .ic-free-label { font-size: 0.72rem; font-weight: 600; color: #16a34a; }
+    .ic-paid-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); }
+
+    /* ── No results ── */
+    .no-results { grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted); font-size: 0.9rem; display: none; }
+
+    /* ── Find Mentor Modal ── */
+    .mentor-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; display: flex; align-items: center; justify-content: center; }
+    .mentor-modal-overlay.hidden { display: none; }
+    .mentor-modal { background: #fff; border-radius: 18px; width: 480px; max-width: 92vw; padding: 28px; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+    .mentor-modal h3 { font-size: 1.1rem; margin-bottom: 6px; }
+    .mentor-modal p { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 16px; }
+    .mentor-search-row { display: flex; gap: 8px; }
+    .mentor-search-input { flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; outline: none; }
+    .mentor-search-input:focus { border-color: var(--green); }
+    .mentor-results { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; }
+    .mentor-result-item { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: border-color .15s; }
+    .mentor-result-item:hover { border-color: var(--green); }
+    .mentor-result-item.hidden-result { display: none; }
+    .mri-avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
+    .mri-info { flex: 1; }
+    .mri-info strong { display: block; font-size: 0.85rem; }
+    .mri-info span { font-size: 0.73rem; color: var(--text-muted); }
+    .mri-tag { font-size: 0.65rem; font-weight: 700; background: var(--light-bg); color: var(--text-muted); padding: 3px 8px; border-radius: 20px; }
+    .mentor-modal-footer { display: flex; justify-content: flex-end; margin-top: 18px; }
+    .mentor-no-results { text-align: center; color: var(--text-muted); font-size: 0.82rem; padding: 20px; display: none; }
+  </style>
+</head>
+<body class="dashboard-page">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <a href="dashboard.html" class="logo db-logo"><span class="logo-dot"></span> PathPM</a>
+    <div class="sidebar-profile">
+      <div class="sp-avatar" id="sidebarAvatar">—</div>
+      <div class="sp-name" id="sidebarName">—</div>
+      <div class="sp-role-badge" id="sidebarRoleBadge">PM</div>
+    </div>
+    <div class="sp-score-block sidebar-score-block">
+      <div class="sp-score-label">READINESS SCORE</div>
+      <div class="sp-score-row">
+        <span class="sp-score-num" id="sidebarScoreNum">—</span>
+        <span class="sp-score-sub">/ 100</span>
+      </div>
+      <div class="sp-score-bar"><div class="sp-bar-fill" id="sidebarBarFill"></div></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="db-main">
+
+    <!-- TOPBAR -->
+    <header class="db-topbar">
+      <div class="topbar-left"><a href="dashboard.html" class="btn-back">← Back</a></div>
+      <div class="topbar-right">
+        <button class="btn-outline small" onclick="openMentorModal()">🔍 Find Mentor</button>
+        <button class="signout-btn" onclick="signOut()">Sign out</button>
+        <div class="topbar-avatar" id="topAvatar">YM</div>
+      </div>
+    </header>
+
+    <div class="db-content">
+
+      <!-- UPCOMING WEBINARS -->
+      <p style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px;">📅 Upcoming Webinars</p>
+      <div class="webinar-strip">
+
+        <div class="webinar-card">
+          <span class="wc-eyebrow">Free · Live</span>
+          <p class="wc-title">Breaking into Product: From Analyst to PM</p>
+          <p class="wc-meta"><strong>David Kim</strong> · Sr. PM, Meta</p>
+          <p class="wc-meta">Wed, Apr 2 · 6:00 PM IST · 60 min</p>
+          <button class="wc-register" onclick="registerWebinar('Breaking into Product: From Analyst to PM','David Kim','2026-04-02')">Register Free →</button>
+        </div>
+
+        <div class="webinar-card">
+          <span class="wc-eyebrow">Free · Live</span>
+          <p class="wc-title">AI Product Strategy: Building with LLMs in 2026</p>
+          <p class="wc-meta"><strong>Aisha Patel</strong> · Sr. PM, OpenAI</p>
+          <p class="wc-meta">Wed, Apr 9 · 7:00 PM IST · 75 min</p>
+          <button class="wc-register" onclick="registerWebinar('AI Product Strategy: Building with LLMs in 2026','Aisha Patel','2026-04-09')">Register Free →</button>
+        </div>
+
+        <div class="webinar-card">
+          <span class="wc-eyebrow">Free · Live</span>
+          <p class="wc-title">The PM Interview Playbook: What Top Companies Really Want</p>
+          <p class="wc-meta"><strong>Sarah Chen</strong> · Sr. PM, Google</p>
+          <p class="wc-meta">Tue, Apr 15 · 5:30 PM IST · 60 min</p>
+          <button class="wc-register" onclick="registerWebinar('The PM Interview Playbook','Sarah Chen','2026-04-15')">Register Free →</button>
+        </div>
+
+        <div class="webinar-card">
+          <span class="wc-eyebrow">Free · Live</span>
+          <p class="wc-title">Platform Thinking: Building Products for Internal Teams</p>
+          <p class="wc-meta"><strong>James Walker</strong> · Director of PM, Microsoft</p>
+          <p class="wc-meta">Thu, Apr 24 · 6:30 PM IST · 60 min</p>
+          <button class="wc-register" onclick="registerWebinar('Platform Thinking: Building Products for Internal Teams','James Walker','2026-04-24')">Register Free →</button>
+        </div>
+
+      </div>
+
+      <!-- HERO + TOGGLE -->
+      <div class="mi-hero">
+        <div>
+          <h2 class="mi-title">Book a Mock Interview</h2>
+          <p class="mi-sub">Practice with expert PMs from top-tier tech firms. Filter by role, experience, or rating — or search by any keyword to find your ideal mentor.</p>
+        </div>
+        <label class="toggle-label">
+          <span>Free Sessions only</span>
+          <div class="toggle-wrap">
+            <input type="checkbox" id="freeToggle" onchange="applyFilters()" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </div>
+        </label>
+      </div>
+
+      <!-- FILTER BAR -->
+      <div class="filter-bar">
+        <span class="filter-label">Filter by</span>
+        <div class="filter-sep"></div>
+
+        <div class="filter-chips" id="typeChips">
+          <button class="filter-chip active" data-type="all" onclick="setChip(this,'typeChips')">All Types</button>
+          <button class="filter-chip" data-type="growth" onclick="setChip(this,'typeChips')">Growth</button>
+          <button class="filter-chip" data-type="technical" onclick="setChip(this,'typeChips')">Technical</button>
+          <button class="filter-chip" data-type="generalist" onclick="setChip(this,'typeChips')">Generalist</button>
+          <button class="filter-chip" data-type="platform" onclick="setChip(this,'typeChips')">Platform</button>
+          <button class="filter-chip" data-type="aiml" onclick="setChip(this,'typeChips')">AI/ML</button>
+          <button class="filter-chip" data-type="data" onclick="setChip(this,'typeChips')">Data</button>
+        </div>
+
+        <div class="filter-sep"></div>
+
+        <select class="filter-select" id="expFilter" onchange="applyFilters()">
+          <option value="all">All Experience</option>
+          <option value="4-7">4–7 years</option>
+          <option value="8-12">8–12 years</option>
+          <option value="12+">12+ years</option>
+        </select>
+
+        <select class="filter-select" id="ratingFilter" onchange="applyFilters()">
+          <option value="all">All Ratings</option>
+          <option value="4.9">4.9+</option>
+          <option value="4.7">4.7+</option>
+        </select>
+
+        <select class="filter-select" id="orgFilter" onchange="applyFilters()">
+          <option value="all">All Companies</option>
+          <option value="faang">Google / Meta</option>
+          <option value="tech-major">Uber / Airbnb / Stripe / Microsoft</option>
+          <option value="startup">OpenAI / Spotify / LinkedIn / Flipkart</option>
+        </select>
+
+        <span class="filter-clear" onclick="clearFilters()">Clear all</span>
+      </div>
+
+      <!-- INTERVIEWER GRID -->
+      <div class="interviewer-grid" id="interviewerGrid">
+
+        <!-- 1 — Sarah Chen -->
+        <div class="interviewer-card"
+          data-free="true" data-type="growth" data-exp="4-7"
+          data-rating="4.8" data-org="faang"
+          data-search="sarah chen google growth pm product sense acquisition retention metrics">
+          <div class="ic-header">
+            <div class="ic-avatar" style="background:#fde68a;color:#92400e;">SC</div>
+            <div class="ic-meta">
+              <strong>Sarah Chen</strong>
+              <span>Sr. PM · Google</span>
+            </div>
+            <div class="ic-rating">⭐ 4.8</div>
+          </div>
+          <div class="ic-tags">
+            <span class="ic-tag">GROWTH PM</span>
+            <span class="ic-tag">PRODUCT SENSE</span>
+            <span class="ic-tag free-tag">FREE</span>
+          </div>
+          <p class="ic-exp"><strong>7 years</strong> in product · Ex-Spotify</p>
+          <p class="ic-quote">"I'll help you nail the intersection of data-driven decisions and intuitive product design. Specialise in funnel analysis and growth loops."</p>
+          <div class="ic-actions">
+            <span class="ic-free-label">Free · 30 min</span>
+            <button class="btn-primary small" onclick="bookFull('Sarah Chen')">Book Session</button>
+          </div>
+        </div>
+
+        <!-- 2 — Mark Thompson -->
+        <div class="interviewer-card"
+          data-free="true" data-type="generalist" data-exp="8-12"
+          data-rating="5.0" data-org="tech-major"
+          data-search="mark thompson uber generalist strategy marketplace operations platform">
+          <div class="ic-header">
+            <div class="ic-avatar" style="background:#dbeafe;color:#1e40af;">MT</div>
+            <div class="ic-meta">
+              <strong>Mark Thompson</strong>
+              <span>Principal PM · Uber</span>
+            </div>
+            <div class="ic-rating">⭐ 5.0</div>
+          </div>
+          <div class="ic-tags">
+            <span class="ic-tag">GENERALIST</span>
+            <span class="ic-tag">STRATEGY</span>
+            <span class="ic-tag free-tag">FREE</span>
+          </div>
+          <p class="ic-exp"><strong>10 years</strong> in product · Ex-Lyft</p>
+          <p class="ic-quote">"Deep dive into operational excellence and marketplace strategy. I specialise in the 'how' behind the 'what' for high-growth platforms."</p>
+          <div class="ic-actions">
+            <span class="ic-free-label">Free · 30 min</span>
+            <button class="btn-primary small" onclick="bookFull('Mark Thompson')">Book Session</button>
+          </div>
+        </div>
+
+        <!-- 3 — Elena Rodriguez -->
+        <div class="interviewer-card"
+          data-free="true" data-type="generalist" data-exp="8-12"
+          data-rating="4.8" data-org="tech-major"
+          data-search="elena rodriguez airbnb generalist leadership storytelling vision consumer">
+          <div class="ic-header">
+            <div class="ic-avatar" style="background:#fce7f3;color:#9d174d;">ER</div>
+            <div class="ic-meta">
+              <strong>Elena Rodriguez</strong>
+              <span>Product Lead · Airbnb</span>
+            </div>
+            <div class="ic-rating">⭐ 4.8</div>
+          </div>
+          <div class="ic-tags">
+            <span class="ic-tag">GENERALIST</span>
+            <span class="ic-tag">LEADERSHIP</span>
+            <span class="ic-tag free-tag">FREE</span>
+          </div>
+          <p class="ic-exp"><strong>8 years</strong> in product · Ex-Pinterest</p>
+          <p class="ic-quote">"Mastering the narrative: I help candidates build compelling stories around leadership experiences and product vision. Consumer product specialist."</p>
+          <div class="ic-actions">
+            <span class="ic-free-label">Free · 30 min</span>
+            <button class="btn-primary small" onclick="bookFull('Elena Rodriguez')">Book Session</button>
+          </div>
+        </div>
+
+        <!-- 4 — David Kim -->
+        <div class="interviewer-card"
+          data-free="false" data-type="technical" data-exp="8-12"
+          data-rating="4.8" data-org="faang"
+          data-search="david kim meta technical pm api system design infrastructure engineering">
+          <div class="ic-header">
+            <div class="ic-avatar" style="background:#d1fae5;color:#065f46;">DK</div>
+            <div class="ic-meta">
+              <strong>David Kim</strong>
+              <span>Sr. PM · Meta</span>
+            </div>
+            <div class="ic-rating">⭐ 4.8</div>
+          </div>
+          <div class="ic-tags">
+            <span class="ic-tag">TECHNICAL PM</span>
+            <span class="ic-tag">SYSTEM DESIGN</span>
+          </div>
+          <p class="ic-exp"><strong>9 years</strong> in product · Ex-Amazon</p>
+          <p class="ic-quote">"For candidates targeting technical PM roles. We deep dive into system design, APIs, and large-scale data infrastructure with real interview simulations."</p>
+          <div class="ic-actions">
+            <span class="ic-paid-label">$80 · 45 min</span>
+            <button class="btn-primary small" onclick="bookFull('David Kim')">Book Session</button>
+          </div>
+        </div>
+
+        <!-- 5 — Priya Sharma -->
+        <div class="interviewer-card"
+          data-free="true" data-type="growth" data-exp="4-7"
+          data-rating="4.7" data-org="tech-major"
+          data-search="priya sharma stripe growth fintech payments monetisation experimentation b2b saas">
+          <div class="ic-header">
+            <div class="ic-avatar" style="background:#ede9fe;color:#5b21b6;">PS</div>
+            <div class="ic-meta">
+              <strong>Priya Sharma</strong>
+              <span>PM · Stripe</span>
+            </div>
+            <div class="ic-rating">⭐ 4.7</div>
+          </div>
+          <div class="ic-tags">
+            <span class="ic-tag">GROWTH PM</span>
+            <span class="ic-tag">FINTECH</span>
+            <span class="ic-tag free-tag">FREE</span>
+          </div>
+          <p class="ic-exp"><strong>5 years</strong> in product · Ex-Razorpay</p>
+          <p class="ic-quote">"Specialising in growth for B2B SaaS and fintech products. I'll help you tackle monetisation, activation funnels, and metrics-heavy interview questions."</p>
+          <div class="ic-actions">
+            <span class="ic-free-label">Free · 30 min</span>
+            <button class="btn-primary small" onclick="bookFull('Priya Sharma')">Book Session</button>
+          </div>
+        </div>
+
+        <!-- 6 — James Walker -->
+        <div class="interviewer-card"
+          data-free="false" data-type="platform" data-exp="12+"
+          data-rating="4.9" data-org="tech-major"
+          data-search="james walker microsoft platform pm enterprise developer tools internal products api sdk">
+          <div class="ic-header">
+            <div class="ic-avatar" style="background:#ffedd5;color:#9a3412;">JW</div>
+            <div class="ic-meta">
+              <strong>James Walker</strong>
+              <span>Director of PM · Microsoft</span>
+            </div>
+            <div class="ic-rating">⭐ 4.9</div>
+          </div>
+          <div class="ic-tags">
+            <span class="ic-tag">PLATFORM PM</span>
+            <span class="ic-tag">ENTERPRISE</span>
+          </div>
+          <p class="ic-exp"><strong>12 years</strong> in product · Ex-SAP</p>
+          <p class="ic-quote">"Platform and enterprise specialist. From API strategy to internal developer tools — I'll prepare you for the unique challenges of platform PM interviews."</p>
+          <div class="ic-actions">
+            <span class="ic-paid-label">$100 · 60 min</span>
+            <button class="btn-primary small" onclick="bookFull('James Walker')">Book Session</button>
+          </div>
+        </div>
+
+        <!-- 7 — Aisha Patel -->
+        <div class="interviewer-card"
+          data-free="true" data-type="aiml" data-exp="4-7"
+          data-rating="4.9" data-org="startup"
+          data-search="aisha patel openai ai ml machine learning llm responsible ai product">
+          <div class="ic-header">
+            <div class="ic-avatar" style="background:#f0f9ff;color:#0369a1;">AP</div>
+            <div class="ic-meta">
+              <strong>Aisha Patel</strong>
+              <span>Sr. PM · OpenAI</span>
+            </div>
+            <div class="ic-rating">⭐ 4.9</div>
+          </div>
+          <div class="ic-tags">
+            <span class="ic-tag">AI/ML PM</span>
+            <span class="ic-tag">LLM PRODUCTS</span>
+            <span class="ic-tag free-tag">FREE</span>
+          </div>
+          <p class="ic-exp"><strong>6 years</strong> in product · Ex-DeepMind</p>
+          <p class="ic-quote">"Navigating the AI product landscape — from LLM evaluation to responsible AI and deployment strategies. I help candidates stand out in the fastest-growing PM track."</p>
+          <div class="ic-actions">
+            <span class="ic-free-label">Free · 30 min</span>
+            <button class="btn-primary small" onclick="bookFull('Aisha Patel')">Book Session</button>
+          </div>
+        </div>
+
+        <!-- 8 — Carlos Mendes -->
+        <div class="interviewer-card"
+          data-free="false" data-type="data" data-exp="8-12"
+          data-rating="4.6" data-org="startup"
+          data-search="carlos mendes spotify data pm analytics metrics governance sql dashboard">
+          <div class="ic-header">
+            <div class="ic-avatar" style="background:#fef9c3;color:#854d0e;">CM</div>
+            <div class="ic-meta">
+              <strong>Carlos Mendes</strong>
+              <span>Sr. PM · Spotify</span>
+            </div>
+            <div class="ic-rating">⭐ 4.6</div>
+          </div>
+          <div class="ic-tags">
+            <span class="ic-tag">DATA PM</span>
+            <span class="ic-tag">ANALYTICS</span>
+          </div>
+          <p class="ic-exp"><strong>8 years</strong> in product · Ex-SoundCloud</p>
+          <p class="ic-quote">"Data product and analytics specialist. Helping candidates master metrics definition, data governance, and the art of turning data questions into product decisions."</p>
+          <div class="ic-actions">
+            <span class="ic-paid-label">$75 · 45 min</span>
+            <button class="btn-primary small" onclick="bookFull('Carlos Mendes')">Book Session</button>
+          </div>
+        </div>
+
+        <!-- 9 — Nina Shah -->
+        <div class="interviewer-card"
+          data-free="true" data-type="generalist" data-exp="8-12"
+          data-rating="4.9" data-org="startup"
+          data-search="nina shah linkedin generalist consumer b2c social product growth engagement network">
+          <div class="ic-header">
+            <div class="ic-avatar" style="background:#e0f2fe;color:#0c4a6e;">NS</div>
+            <div class="ic-meta">
+              <strong>Nina Shah</strong>
+              <span>Group PM · LinkedIn</span>
+            </div>
+            <div class="ic-rating">⭐ 4.9</div>
+          </div>
+          <div class="ic-tags">
+            <span class="ic-tag">GENERALIST</span>
+            <span class="ic-tag">CONSUMER</span>
+            <span class="ic-tag free-tag">FREE</span>
+          </div>
+          <p class="ic-exp"><strong>11 years</strong> in product · Ex-Twitter</p>
+          <p class="ic-quote">"From consumer social to professional networks — I coach candidates on crafting product sense answers and building a compelling PM narrative for top-tier interviews."</p>
+          <div class="ic-actions">
+            <span class="ic-free-label">Free · 30 min</span>
+            <button class="btn-primary small" onclick="bookFull('Nina Shah')">Book Session</button>
+          </div>
+        </div>
+
+        <!-- 10 — Rahul Verma -->
+        <div class="interviewer-card"
+          data-free="false" data-type="growth" data-exp="4-7"
+          data-rating="4.7" data-org="startup"
+          data-search="rahul verma flipkart growth pm e-commerce india marketplace conversion retention d2c">
+          <div class="ic-header">
+            <div class="ic-avatar" style="background:#fef3c7;color:#78350f;">RV</div>
+            <div class="ic-meta">
+              <strong>Rahul Verma</strong>
+              <span>Sr. PM · Flipkart</span>
+            </div>
+            <div class="ic-rating">⭐ 4.7</div>
+          </div>
+          <div class="ic-tags">
+            <span class="ic-tag">GROWTH PM</span>
+            <span class="ic-tag">E-COMMERCE</span>
+          </div>
+          <p class="ic-exp"><strong>6 years</strong> in product · Ex-Myntra</p>
+          <p class="ic-quote">"Specialising in growth and conversion for India-focused e-commerce products. I help candidates ace market-sizing, GTM strategy, and localisation questions in PM interviews."</p>
+          <div class="ic-actions">
+            <span class="ic-paid-label">$60 · 45 min</span>
+            <button class="btn-primary small" onclick="bookFull('Rahul Verma')">Book Session</button>
+          </div>
+        </div>
+
+        <p class="no-results" id="noResults">No interviewers match your current filters. Try adjusting them.</p>
+
+      </div>
+
+      <!-- EXCLUSIVE BANNER -->
+      <div class="exclusive-banner" style="margin-top: 28px;">
+        <div class="eb-text">
+          <p class="eb-eyebrow">EXCLUSIVE CONTENT</p>
+          <h3>Want specialised interview prep for AI Product Management?</h3>
+          <p>Curated sessions designed by AI/ML Product Managers to master the LLM lifecycle and AI infrastructure interviews.</p>
+          <button class="btn-primary" onclick="showToast('AI Prep launching soon — you\'re on the waitlist!')">Explore AI Prep</button>
+        </div>
+        <div class="eb-icons">
+          <span class="eb-icon">🤖</span>
+          <span class="eb-icon">💡</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FIND MENTOR MODAL -->
+  <div class="mentor-modal-overlay hidden" id="mentorModal">
+    <div class="mentor-modal">
+      <h3>Find Your Ideal Mentor</h3>
+      <p>Search by name, company, role type, specialty, or any keyword.</p>
+      <div class="mentor-search-row">
+        <input type="text" class="mentor-search-input" id="mentorSearch"
+          placeholder="e.g. growth, Google, AI/ML, 10 years…"
+          oninput="searchMentors()" />
+      </div>
+      <div class="mentor-results" id="mentorResults">
+        <!-- populated by JS -->
+      </div>
+      <p class="mentor-no-results" id="mentorNoResults">No mentors found. Try a different keyword.</p>
+      <div class="mentor-modal-footer">
+        <button class="btn-ghost" onclick="closeMentorModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast hidden">
+    <span class="toast-icon">✓</span>
+    <span id="toast-msg"></span>
+  </div>
+
+  <script>
+    const user      = JSON.parse(sessionStorage.getItem('pathpm_user') || '{"name":"Yash Mehta"}');
+    const score     = parseInt(sessionStorage.getItem('pathpm_score') || '62');
+    const roleLabel = sessionStorage.getItem('pathpm_role_label') || 'Growth PM';
+    const initials  = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+    document.getElementById('topAvatar').textContent       = initials;
+    document.getElementById('sidebarAvatar').textContent   = initials;
+    document.getElementById('sidebarName').textContent     = user.name;
+    document.getElementById('sidebarRoleBadge').textContent = 'Target: ' + roleLabel;
+    document.getElementById('sidebarScoreNum').textContent = score;
+    setTimeout(() => { document.getElementById('sidebarBarFill').style.width = score + '%'; }, 300);
+
+    // ── Filter state ──────────────────────────────────
+    let activeType = 'all';
+
+    function setChip(btn, groupId) {
+      document.querySelectorAll(`#${groupId} .filter-chip`).forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      activeType = btn.dataset.type;
+      applyFilters();
+    }
+
+    function applyFilters() {
+      const freeOnly = document.getElementById('freeToggle').checked;
+      const exp      = document.getElementById('expFilter').value;
+      const rating   = document.getElementById('ratingFilter').value;
+      const org      = document.getElementById('orgFilter').value;
+
+      let anyVisible = false;
+      document.querySelectorAll('.interviewer-card').forEach(card => {
+        const matchFree   = !freeOnly || card.dataset.free === 'true';
+        const matchType   = activeType === 'all' || card.dataset.type === activeType;
+        const matchExp    = exp === 'all' || card.dataset.exp === exp;
+        const matchRating = rating === 'all' || parseFloat(card.dataset.rating) >= parseFloat(rating);
+        const matchOrg    = org === 'all' || card.dataset.org === org;
+
+        const show = matchFree && matchType && matchExp && matchRating && matchOrg;
+        card.classList.toggle('hidden-card', !show);
+        if (show) anyVisible = true;
+      });
+
+      document.getElementById('noResults').style.display = anyVisible ? 'none' : 'block';
+    }
+
+    function clearFilters() {
+      document.getElementById('freeToggle').checked = false;
+      document.getElementById('expFilter').value = 'all';
+      document.getElementById('ratingFilter').value = 'all';
+      document.getElementById('orgFilter').value = 'all';
+      document.querySelectorAll('#typeChips .filter-chip').forEach(c => c.classList.remove('active'));
+      document.querySelector('#typeChips .filter-chip[data-type="all"]').classList.add('active');
+      activeType = 'all';
+      applyFilters();
+    }
+
+    // ── Booking ───────────────────────────────────────
+    async function bookFull(name) {
+      showToast('Booking confirmed with ' + name + '! Check your email.');
+
+      const user = await getCurrentUser();
+      if (!user) return;
+
+      // Find the card to get extra details
+      const card = [...document.querySelectorAll('.interviewer-card')]
+        .find(c => c.dataset.search.includes(name.toLowerCase()));
+      const isFree  = card?.dataset.free === 'true';
+      const company = card ? card.querySelector('.ic-meta span').textContent.split('·')[1]?.trim() : '';
+      const price   = isFree ? 0 : parseInt(card?.querySelector('.ic-paid-label')?.textContent?.replace(/[^0-9]/g,'') || '0');
+
+      await sb.from('mock_bookings').insert({
+        user_id:             user.id,
+        interviewer_name:    name,
+        interviewer_company: company,
+        session_type:        isFree ? 'free' : 'paid',
+        price_usd:           price
+      });
+    }
+
+    async function registerWebinar(title, presenter, dateStr) {
+      showToast('Registered for ' + presenter + '\'s webinar!');
+
+      const user = await getCurrentUser();
+      if (!user) return;
+
+      await sb.from('webinar_registrations').insert({
+        user_id:       user.id,
+        webinar_title: title,
+        presenter_name: presenter,
+        webinar_date:  dateStr ? new Date(dateStr).toISOString() : null
+      });
+    }
+
+    // ── Find Mentor Modal ─────────────────────────────
+    const MENTORS = [
+      { initials:'SC', bg:'#fde68a', color:'#92400e', name:'Sarah Chen',     role:'Sr. PM · Google',            type:'GROWTH PM',    search:'sarah chen google growth pm product sense acquisition retention metrics' },
+      { initials:'MT', bg:'#dbeafe', color:'#1e40af', name:'Mark Thompson',   role:'Principal PM · Uber',        type:'GENERALIST',   search:'mark thompson uber generalist strategy marketplace operations platform' },
+      { initials:'ER', bg:'#fce7f3', color:'#9d174d', name:'Elena Rodriguez', role:'Product Lead · Airbnb',      type:'GENERALIST',   search:'elena rodriguez airbnb generalist leadership storytelling vision consumer' },
+      { initials:'DK', bg:'#d1fae5', color:'#065f46', name:'David Kim',       role:'Sr. PM · Meta',              type:'TECHNICAL PM', search:'david kim meta technical pm api system design infrastructure engineering' },
+      { initials:'PS', bg:'#ede9fe', color:'#5b21b6', name:'Priya Sharma',    role:'PM · Stripe',                type:'GROWTH PM',    search:'priya sharma stripe growth fintech payments monetisation experimentation b2b saas' },
+      { initials:'JW', bg:'#ffedd5', color:'#9a3412', name:'James Walker',    role:'Director of PM · Microsoft', type:'PLATFORM PM',  search:'james walker microsoft platform pm enterprise developer tools internal products api sdk' },
+      { initials:'AP', bg:'#f0f9ff', color:'#0369a1', name:'Aisha Patel',     role:'Sr. PM · OpenAI',            type:'AI/ML PM',     search:'aisha patel openai ai ml machine learning llm responsible ai product' },
+      { initials:'CM', bg:'#fef9c3', color:'#854d0e', name:'Carlos Mendes', role:'Sr. PM · Spotify',     type:'DATA PM',      search:'carlos mendes spotify data pm analytics metrics governance sql dashboard' },
+      { initials:'NS', bg:'#e0f2fe', color:'#0c4a6e', name:'Nina Shah',     role:'Group PM · LinkedIn',  type:'GENERALIST',   search:'nina shah linkedin generalist consumer b2c social product growth engagement network' },
+      { initials:'RV', bg:'#fef3c7', color:'#78350f', name:'Rahul Verma',   role:'Sr. PM · Flipkart',    type:'GROWTH PM',    search:'rahul verma flipkart growth pm e-commerce india marketplace conversion retention d2c' },
+    ];
+
+    function openMentorModal() {
+      document.getElementById('mentorModal').classList.remove('hidden');
+      document.getElementById('mentorSearch').value = '';
+      renderMentorResults('');
+      setTimeout(() => document.getElementById('mentorSearch').focus(), 100);
+    }
+
+    function closeMentorModal() {
+      document.getElementById('mentorModal').classList.add('hidden');
+    }
+
+    function renderMentorResults(query) {
+      const q = query.toLowerCase().trim();
+      const container = document.getElementById('mentorResults');
+      const noRes = document.getElementById('mentorNoResults');
+
+      const matches = MENTORS.filter(m => !q || m.search.includes(q));
+
+      container.innerHTML = matches.map(m => `
+        <div class="mentor-result-item" onclick="closeMentorModal(); bookFull('${m.name}')">
+          <div class="mri-avatar" style="background:${m.bg};color:${m.color};">${m.initials}</div>
+          <div class="mri-info">
+            <strong>${m.name}</strong>
+            <span>${m.role}</span>
+          </div>
+          <span class="mri-tag">${m.type}</span>
+        </div>
+      `).join('');
+
+      noRes.style.display = matches.length ? 'none' : 'block';
+    }
+
+    function searchMentors() {
+      renderMentorResults(document.getElementById('mentorSearch').value);
+    }
+
+    // Close modal on overlay click
+    document.getElementById('mentorModal').addEventListener('click', function(e) {
+      if (e.target === this) closeMentorModal();
+    });
+
+    // ── Toast ─────────────────────────────────────────
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      t.classList.remove('hidden');
+      setTimeout(() => t.classList.add('hidden'), 3000);
+    }
+  </script>
+
+</body>
+</html>
