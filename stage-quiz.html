@@ -154,6 +154,7 @@
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="navRoleTag" class="quiz-topic-tag"></span>
       <button class="signout-btn" onclick="signOut()">Sign out</button>
+      <div class="user-avatar" id="nav-avatar">?</div>
     </div>
   </nav>
 
@@ -632,6 +633,9 @@
     // ── Init ──────────────────────────────────────────────────────
     document.getElementById('navRoleTag').textContent   = roleLabel;
     document.getElementById('quizTopicTag').textContent = quizData.topic;
+    const _u = JSON.parse(sessionStorage.getItem('pathpm_user') || '{}');
+    const _n = _u.name || '';
+    if (_n) document.getElementById('nav-avatar').textContent = _n.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
 
     renderQuestion();
 

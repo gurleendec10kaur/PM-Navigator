@@ -38,10 +38,10 @@
 
     <!-- TOPBAR -->
     <header class="db-topbar">
-      <div class="topbar-left"></div>
+      <div class="topbar-left"><a href="conversation.html" class="btn-back">← Back</a></div>
       <div class="topbar-right">
         <button class="signout-btn" onclick="signOut()">Sign out</button>
-        <div class="topbar-avatar" id="topAvatar">YM</div>
+        <div class="topbar-avatar" id="topAvatar">—</div>
       </div>
     </header>
 
@@ -125,9 +125,6 @@
 
         <div class="stages" id="stagesContainer"></div>
 
-        <div class="role-footer" style="padding: 24px 0 8px;">
-          <a href="conversation.html" class="btn-back">← Back</a>
-        </div>
 
       </div>
 
@@ -192,10 +189,10 @@
 
     // Set user
     const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
-    document.getElementById('topAvatar').textContent = initials;
     document.getElementById('lpRole').textContent = roleLabel;
 
     // Sidebar profile
+    if (document.getElementById('topAvatar')) document.getElementById('topAvatar').textContent = initials;
     document.getElementById('sidebarAvatar').textContent    = initials;
     document.getElementById('sidebarName').textContent      = user.name;
     document.getElementById('sidebarRoleBadge').textContent = 'Target: ' + roleLabel;

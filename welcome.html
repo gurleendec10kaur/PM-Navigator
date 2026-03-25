@@ -246,8 +246,8 @@
   <nav class="welcome-nav">
     <a href="welcome.html" class="logo">&#9632; PathPM</a>
     <div style="display:flex;align-items:center;gap:12px;">
-      <span id="nav-name" style="font-size:0.9rem;color:var(--text-muted);"></span>
       <button class="signout-btn" onclick="signOut()">Sign out</button>
+      <div class="user-avatar" id="nav-avatar">?</div>
     </div>
   </nav>
 
@@ -364,7 +364,7 @@
       const name = profile?.name || user.user_metadata?.name || user.email.split('@')[0];
       const firstName = name.split(' ')[0];
 
-      document.getElementById('nav-name').textContent = firstName;
+      document.getElementById('nav-avatar').textContent = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
       document.getElementById('welcome-heading').textContent =
         `Hey ${firstName}, let's figure out exactly where you stand as a PM.`;
 

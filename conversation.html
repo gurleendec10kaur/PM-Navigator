@@ -12,7 +12,10 @@
 
   <!-- NAV -->
   <nav class="convo-nav">
-    <a href="welcome.html" class="logo on-logo"><span class="logo-dot"></span> PathPM</a>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <a href="welcome.html" class="logo on-logo"><span class="logo-dot"></span> PathPM</a>
+      <a href="case-study.html" class="btn-back">← Back</a>
+    </div>
     <div class="convo-progress-wrap">
       <span class="convo-progress-label" id="progressLabel">Question 1 of ~6</span>
       <div class="convo-progress-bar">
@@ -23,6 +26,7 @@
       <button class="save-exit-btn" onclick="handleSave()">Save</button>
       <button class="signout-btn" onclick="window.location.href='dashboard.html'" style="background:none;border:1px solid var(--border);color:var(--text-muted);">Skip for now</button>
       <button class="signout-btn" onclick="signOut()">Sign out</button>
+      <div class="user-avatar" id="nav-avatar">?</div>
     </div>
   </nav>
 
@@ -94,9 +98,6 @@
       <p class="input-hint">Press Enter to send · Shift+Enter for new line · 🎤 mic for voice · bullet points are totally fine</p>
     </div>
   </div><!-- end convo-layout -->
-  <div class="role-footer">
-    <a href="case-study.html" class="btn-back">← Back</a>
-  </div>
   </div><!-- end side-content -->
   </div><!-- end assessment-layout -->
 
@@ -108,7 +109,9 @@
       const usr = JSON.parse(sessionStorage.getItem('pathpm_user')        || '{}');
       const sc  = sessionStorage.getItem('pathpm_score') || '—';
       const name = rd.name || usr.name || 'You';
-      document.getElementById('spAvatar').textContent    = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+      const _initials = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+      document.getElementById('spAvatar').textContent    = _initials;
+      document.getElementById('nav-avatar').textContent  = _initials;
       document.getElementById('spName').textContent      = name;
       document.getElementById('spRoleBadge').textContent = 'Target: ' + (sessionStorage.getItem('pathpm_role_label') || 'PM');
       document.getElementById('spScore').textContent     = sc;

@@ -12,9 +12,10 @@
 
   <!-- NAV -->
   <nav class="onboarding-nav role-nav">
-    <a href="welcome.html" class="logo on-logo">
-      <span class="logo-dot"></span> PathPM
-    </a>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <a href="welcome.html" class="logo on-logo"><span class="logo-dot"></span> PathPM</a>
+      <a href="upload.html" class="btn-back">← Back</a>
+    </div>
     <div class="stepper">
       <div class="step done-step">
         <span class="step-bubble done-bubble">✓</span>
@@ -34,6 +35,7 @@
     <div style="display:flex;align-items:center;gap:8px;">
       <button class="save-exit-btn" onclick="handleSaveExit()">Save</button>
       <button class="signout-btn" onclick="signOut()">Sign out</button>
+      <div class="user-avatar" id="nav-avatar">?</div>
     </div>
   </nav>
 
@@ -177,9 +179,6 @@
 
       </div>
 
-      <div class="role-footer">
-        <a href="upload.html" class="btn-back">← Back</a>
-      </div>
     </main>
   </div>
 
@@ -241,6 +240,7 @@
     const initials    = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
     document.getElementById('profileAvatar').textContent  = initials;
+    document.getElementById('nav-avatar').textContent     = initials;
     document.getElementById('profileName').textContent    = displayName;
 
     // Role & company

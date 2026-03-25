@@ -96,7 +96,10 @@
 <body class="cs-page">
 
   <nav class="onboarding-nav role-nav">
-    <a href="welcome.html" class="logo on-logo"><span class="logo-dot"></span> PathPM</a>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <a href="welcome.html" class="logo on-logo"><span class="logo-dot"></span> PathPM</a>
+      <a href="mcq.html" class="btn-back">← Back</a>
+    </div>
     <div class="stepper">
       <div class="step done-step"><span class="step-bubble done-bubble">✓</span><span class="step-name muted">Resume Parsed</span></div>
       <div class="step-line filled"></div>
@@ -110,6 +113,7 @@
       <button class="save-exit-btn" onclick="saveProgress()">Save</button>
       <button class="signout-btn" onclick="window.location.href='dashboard.html'" style="background:none;border:1px solid var(--border);color:var(--text-muted);">Skip for now</button>
       <button class="signout-btn" onclick="signOut()">Sign out</button>
+      <div class="user-avatar" id="nav-avatar">?</div>
     </div>
   </nav>
 
@@ -172,9 +176,6 @@
     </div>
 
   </main>
-  <div class="role-footer">
-    <a href="mcq.html" class="btn-back">← Back</a>
-  </div>
   </div><!-- end side-content -->
   </div><!-- end assessment-layout -->
 
@@ -186,7 +187,9 @@
       const usr = JSON.parse(sessionStorage.getItem('pathpm_user')        || '{}');
       const sc  = sessionStorage.getItem('pathpm_score') || '—';
       const name = rd.name || usr.name || 'You';
-      document.getElementById('spAvatar').textContent    = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+      const _initials = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+      document.getElementById('spAvatar').textContent    = _initials;
+      document.getElementById('nav-avatar').textContent  = _initials;
       document.getElementById('spName').textContent      = name;
       document.getElementById('spRoleBadge').textContent = 'Target: ' + (sessionStorage.getItem('pathpm_role_label') || 'PM');
       document.getElementById('spScore').textContent     = sc;
