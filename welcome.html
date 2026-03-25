@@ -364,7 +364,7 @@
       const name = profile?.name || user.user_metadata?.name || user.email.split('@')[0];
       const firstName = name.split(' ')[0];
 
-      document.getElementById('nav-avatar').textContent = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+      document.getElementById('nav-avatar').textContent = getInitials(name);
       document.getElementById('welcome-heading').textContent =
         `Hey ${firstName}, let's figure out exactly where you stand as a PM.`;
 

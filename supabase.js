@@ -38,6 +38,18 @@ async function signOut() {
   window.location.href = 'auth.html';
 }
 
+// ── Initials helper ───────────────────────────
+// Always returns exactly 2 uppercase characters.
+// "Gurleen Kaur" → "GK", "Gurleen" → "GU", "" → "—"
+function getInitials(name) {
+  if (!name || !name.trim()) return '—';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return (parts[0][0] + (parts[0][1] || parts[0][0])).toUpperCase();
+}
+
 // ── Score helper ──────────────────────────────
 
 async function updateScore(userId, newScore) {

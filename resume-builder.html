@@ -259,7 +259,7 @@
 
     // ── Init ──────────────────────────────────────────────────────
     (async () => {
-      const initials = (sessionUser.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+      const initials = getInitials(sessionUser.name);
       document.getElementById('topAvatar').textContent        = initials;
       document.getElementById('sidebarAvatar').textContent    = initials;
       document.getElementById('sidebarName').textContent      = sessionUser.name || '—';

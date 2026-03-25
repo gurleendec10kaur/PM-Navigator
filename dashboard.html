@@ -202,7 +202,7 @@
     function initDashboard() {
 
     // Set user
-    const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+    const initials = getInitials(user.name);
     document.getElementById('lpRole').textContent = roleLabel;
 
     // Sidebar profile

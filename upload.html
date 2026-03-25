@@ -216,14 +216,14 @@
     };
 
     const INDUSTRY_KEYWORDS = {
-      'Fintech':       ['fintech', 'payments', 'banking', 'finance', 'lending', 'insurance', 'wealth'],
-      'E-commerce':    ['e-commerce', 'ecommerce', 'retail', 'marketplace', 'shopping'],
+      'Consulting':    ['consulting', 'advisory', 'strategy consulting', 'deloitte', 'mckinsey', 'bcg', 'accenture', 'kpmg', 'pwc', 'management consulting', 'thoucentric', 'ey ', ' pwc'],
+      'Fintech':       ['fintech', 'neobank', 'payments platform', 'digital banking', 'lending platform', 'insurtech', 'wealthtech', 'razorpay', 'stripe', 'paypal', 'paytm'],
+      'E-commerce':    ['e-commerce', 'ecommerce', 'retail', 'marketplace', 'shopping cart'],
       'SaaS / B2B':    ['saas', 'b2b', 'enterprise software', 'crm', 'erp'],
       'Healthcare':    ['health', 'medical', 'hospital', 'pharma', 'clinical'],
-      'Consulting':    ['consulting', 'advisory', 'strategy consulting', 'deloitte', 'mckinsey', 'bcg', 'accenture', 'kpmg', 'pwc'],
-      'Edtech':        ['education', 'edtech', 'learning', 'e-learning', 'lms'],
-      'Logistics':     ['logistics', 'supply chain', 'delivery', 'warehouse', 'shipping'],
-      'Consumer Tech': ['consumer', 'mobile app', 'social', 'media', 'entertainment'],
+      'Edtech':        ['education', 'edtech', 'e-learning', 'lms', 'online learning'],
+      'Logistics':     ['logistics', 'supply chain', 'last mile', 'warehouse', 'shipping'],
+      'Consumer Tech': ['consumer app', 'mobile app', 'social media', 'entertainment platform'],
     };
 
     function analyzeText(text) {
@@ -247,11 +247,13 @@
       }
       if (skills.length === 0) skills.push('Product Roadmap', 'Stakeholder Mgmt', 'Agile / Scrum');
 
-      // Detect industry
-      let industry = 'Technology';
+      // Detect industry — score by frequency, pick highest
+      const industryScores = {};
       for (const [label, keywords] of Object.entries(INDUSTRY_KEYWORDS)) {
-        if (keywords.some(kw => lower.includes(kw))) { industry = label; break; }
+        industryScores[label] = keywords.reduce((acc, kw) => acc + (lower.includes(kw) ? 1 : 0), 0);
       }
+      const topIndustry = Object.entries(industryScores).sort((a, b) => b[1] - a[1])[0];
+      let industry = (topIndustry && topIndustry[1] > 0) ? topIndustry[0] : 'Technology';
 
       // Try to extract current role — match title keyword + up to 2 qualifier words only
       const titlePatterns = [
@@ -423,7 +425,7 @@
       const { data: profile } = await sb.from('profiles').select('name').eq('id', currentUser.id).maybeSingle();
       const name = profile?.name || currentUser.user_metadata?.name || currentUser.email.split('@')[0];
       sessionStorage.setItem('pathpm_user', JSON.stringify({ name, email: currentUser.email }));
-      document.getElementById('nav-avatar').textContent = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+      document.getElementById('nav-avatar').textContent = getInitials(name);
 
       // Load previous uploads
       loadPreviousUploads(currentUser.id);

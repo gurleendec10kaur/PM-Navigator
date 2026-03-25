@@ -108,7 +108,7 @@
       const usr = JSON.parse(sessionStorage.getItem('pathpm_user')        || '{}');
       const sc  = sessionStorage.getItem('pathpm_score') || '—';
       const name = rd.name || usr.name || 'You';
-      const _initials = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+      const _initials = getInitials(name);
       document.getElementById('spAvatar').textContent    = _initials;
       document.getElementById('nav-avatar').textContent  = _initials;
       document.getElementById('spName').textContent      = name;
@@ -237,7 +237,7 @@
     }
 
     function getInitials() {
-      return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+      return getInitials(user.name);
     }
 
     /* ─── ASK NEXT QUESTION ─── */

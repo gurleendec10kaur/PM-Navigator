@@ -635,7 +635,7 @@
     document.getElementById('quizTopicTag').textContent = quizData.topic;
     const _u = JSON.parse(sessionStorage.getItem('pathpm_user') || '{}');
     const _n = _u.name || '';
-    if (_n) document.getElementById('nav-avatar').textContent = _n.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+    if (_n) document.getElementById('nav-avatar').textContent = getInitials(_n);
 
     renderQuestion();
 

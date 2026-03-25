@@ -236,7 +236,7 @@
     const authUser   = JSON.parse(sessionStorage.getItem('pathpm_user') || '{}');
 
     const displayName = resumeData.name || authUser.name || 'You';
-    const initials    = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    const initials    = getInitials(displayName);
 
     document.getElementById('profileAvatar').textContent  = initials;
     document.getElementById('nav-avatar').textContent     = initials;

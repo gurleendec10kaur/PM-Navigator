@@ -137,7 +137,7 @@
     const uName = rd.name || usr.name || '';
     if (uName) {
       document.getElementById('nav-avatar').textContent =
-        uName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        getInitials(uName);
     }
 
     // Build step details from actual analysis
