@@ -12,7 +12,7 @@
 
   <!-- NAV -->
   <nav class="convo-nav">
-    <div style="display:flex;align-items:center;gap:16px;">
+    <div style="display:flex;align-items:center;gap:32px;">
       <a href="welcome.html" class="logo on-logo"><span class="logo-dot"></span> PathPM</a>
       <a href="case-study.html" class="btn-back">← Back</a>
     </div>
@@ -288,7 +288,7 @@
           const user = await getCurrentUser();
           if (!user) return;
           const role      = sessionStorage.getItem('pathpm_role') || 'growth';
-          const baseScore = parseInt(sessionStorage.getItem('pathpm_score') || '62');
+          const baseScore = parseInt(sessionStorage.getItem('pathpm_score') || '48');
           const newScore  = Math.min(baseScore + 8, 99);   // conversation adds up to 8 pts
 
           await sb.from('ai_conversations').insert({
@@ -310,7 +310,7 @@
           // Build report from skill gap data
           const missing  = skillGap.missing  || [];
           const have     = skillGap.have     || [];
-          const mcqScore = parseInt(sessionStorage.getItem('pathpm_score') || '60');
+          const mcqScore = parseInt(sessionStorage.getItem('pathpm_score') || '48');
 
           const ACTION_PLANS = {
             'A/B Testing':       { resource: 'Trustworthy Online Controlled Experiments (book)', action: 'Run a mock A/B test design for a product you use daily' },
@@ -504,7 +504,7 @@
       // Save progress to Supabase
       const currentUser = await getCurrentUser();
       if (currentUser) {
-        const baseScore = parseInt(sessionStorage.getItem('pathpm_score') || '62');
+        const baseScore = parseInt(sessionStorage.getItem('pathpm_score') || '48');
         await sb.from('ai_conversations').insert({
           user_id:         currentUser.id,
           role_key:        role,

@@ -709,7 +709,7 @@
       sessionStorage.setItem(`pathpm_quiz_done_${roleKey}`, score);
 
       // Update readiness score (boost by up to 12 points based on performance)
-      const currentScore = parseInt(sessionStorage.getItem('pathpm_score') || '62');
+      const currentScore = parseInt(sessionStorage.getItem('pathpm_score') || '48');
       const bonus = Math.round((score / questions.length) * 12);
       const newScore = Math.min(100, currentScore + bonus);
       sessionStorage.setItem('pathpm_score', newScore);

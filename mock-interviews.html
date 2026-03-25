@@ -513,7 +513,7 @@
 
   <script>
     const user      = JSON.parse(sessionStorage.getItem('pathpm_user') || '{"name":"Yash Mehta"}');
-    const score     = parseInt(sessionStorage.getItem('pathpm_score') || '62');
+    const score     = parseInt(sessionStorage.getItem('pathpm_score') || '48');
     const roleLabel = sessionStorage.getItem('pathpm_role_label') || 'Growth PM';
     const initials  = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
     document.getElementById('topAvatar').textContent       = initials;
