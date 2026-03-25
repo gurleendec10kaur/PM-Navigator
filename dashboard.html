@@ -174,16 +174,26 @@
         sessionStorage.setItem('pathpm_score',      score);
       }
 
-      // Fetch display name
+      // Fetch display name — prefer full_name from OAuth metadata, fall back to profiles table
       const { data: profile } = await sb
         .from('profiles')
         .select('name')
         .eq('id', sbUser.id)
         .maybeSingle();
 
-      if (profile?.name) {
-        user = { name: profile.name };
+      const fullName = sbUser.user_metadata?.full_name
+        || sbUser.user_metadata?.name
+        || profile?.name
+        || sbUser.email?.split('@')[0];
+
+      if (fullName) {
+        user = { name: fullName, email: sbUser.email };
         sessionStorage.setItem('pathpm_user', JSON.stringify(user));
+
+        // Backfill profiles table if it only has a partial name
+        if (profile?.name && !profile.name.includes(' ') && fullName.includes(' ')) {
+          await sb.from('profiles').update({ name: fullName }).eq('id', sbUser.id);
+        }
       }
 
       // Re-render with live values
