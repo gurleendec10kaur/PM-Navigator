@@ -74,7 +74,7 @@ ul { list-style: none; }
   display: flex; align-items: center; gap: 32px;
   height: 64px;
 }
-.logo { font-weight: 700; font-size: 1.1rem; color: var(--dark); letter-spacing: -0.3px; }
+.logo { font-weight: 700; font-size: 1.1rem; color: var(--dark); letter-spacing: -0.3px; display: inline-flex; align-items: center; gap: 7px; }
 .nav-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 
 /* ===== HERO ===== */
@@ -420,7 +420,7 @@ ul { list-style: none; }
   position: relative;
 }
 .on-logo { font-weight: 700; font-size: 1rem; color: var(--dark); display: flex; align-items: center; gap: 6px; }
-.logo-dot { width: 10px; height: 10px; background: var(--green); border-radius: 50%; display: inline-block; }
+.logo-dot { width: 1.15em; height: 1.15em; flex-shrink: 0; display: inline-block; vertical-align: -0.15em; background: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='10' cy='10' r='8.5' stroke='%2300a86b' stroke-width='1.8'/%3E%3Cpath d='M10 3.5L12.2 9.5L10 8.2L7.8 9.5Z' fill='%2300a86b'/%3E%3Cpath d='M10 16.5L7.8 10.5L10 11.8L12.2 10.5Z' fill='%23b0b7c3'/%3E%3Ccircle cx='10' cy='10' r='1.4' fill='%2300a86b'/%3E%3C/svg%3E") no-repeat center; background-size: contain; }
 
 .stepper { display: flex; align-items: center; gap: 0; flex: 1; justify-content: center; }
 .step { display: flex; align-items: center; gap: 8px; }
