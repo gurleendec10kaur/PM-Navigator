@@ -33,7 +33,6 @@
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
-      <button class="save-exit-btn" onclick="handleSaveExit()">Save</button>
       <button class="signout-btn" onclick="signOut()">Sign out</button>
       <div class="user-avatar" id="nav-avatar">?</div>
     </div>
@@ -521,10 +520,6 @@
       window.location.href = 'dashboard.html';
     }
 
-    function handleSaveExit() {
-      sessionStorage.setItem('pathpm_role', selectedRole);
-      showToast('Progress saved!');
-    }
 
     function showToast(msg) {
       const toast = document.getElementById('toast');

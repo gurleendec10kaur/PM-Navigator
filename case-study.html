@@ -110,7 +110,6 @@
       <div class="step active"><span class="step-bubble active pulse">4</span><span class="step-name">Case Study</span></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
-      <button class="save-exit-btn" onclick="saveProgress()">Save</button>
       <button class="signout-btn" onclick="window.location.href='dashboard.html'" style="background:none;border:1px solid var(--border);color:var(--text-muted);">Skip for now</button>
       <button class="signout-btn" onclick="signOut()">Sign out</button>
       <div class="user-avatar" id="nav-avatar">?</div>
@@ -368,9 +367,6 @@
       window.location.href = 'conversation.html';
     }
 
-    function saveProgress() {
-      showToast('Progress saved!');
-    }
 
     function showToast(msg) {
       const toast = document.getElementById('toast');
