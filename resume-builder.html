@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     /* Inline edit mode */
     .edit-resume-btn { font-size: 0.72rem; font-weight: 600; padding: 4px 11px; border-radius: 20px; border: 1px solid var(--border); background: var(--light-bg); color: var(--text-muted); cursor: pointer; transition: all .15s; white-space: nowrap; }
@@ -16,6 +17,11 @@
     .resume-doc.edit-mode [contenteditable="true"]:focus { background: #dcfce7; }
     .edit-hint { font-size: 0.68rem; color: #16a34a; margin-bottom: 6px; display: none; }
     .resume-doc.edit-mode .edit-hint { display: block; }
+    /* Resume source banner */
+    .rb-source-banner { display:flex; align-items:center; gap:8px; font-size:0.78rem; border-radius:8px; padding:8px 12px; margin-bottom:14px; }
+    .rb-source-banner.loaded { background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; }
+    .rb-source-banner.loading { background:var(--light-bg); border:1px solid var(--border); color:var(--text-muted); }
+    .rb-source-banner.none { background:#fff7ed; border:1px solid #fed7aa; color:#c2410c; }
   </style>
 </head>
 <body class="dashboard-page">
@@ -56,6 +62,7 @@
       <!-- LEFT: INPUT PANEL -->
       <div class="rb-left">
         <h3 class="rb-section-title">Resume Builder</h3>
+        <div class="rb-source-banner loading" id="resumeSourceBanner">⏳ Loading your resume…</div>
 
         <div class="rb-jd-section">
           <p class="rb-label">
@@ -240,41 +247,305 @@
   </div>
 
   <script>
-    const user  = JSON.parse(sessionStorage.getItem('pathpm_user') || '{"name":"Yash Mehta"}');
-    const score = parseInt(sessionStorage.getItem('pathpm_score') || '48');
-    const roleLabel = sessionStorage.getItem('pathpm_role_label') || 'Growth PM';
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
-    document.getElementById('topAvatar').textContent        = initials;
-    document.getElementById('resumeName').textContent       = user.name.toUpperCase();
-    document.getElementById('sidebarAvatar').textContent    = initials;
-    document.getElementById('sidebarName').textContent      = user.name;
-    document.getElementById('sidebarRoleBadge').textContent = 'Target: ' + roleLabel;
-    document.getElementById('sidebarScoreNum').textContent  = score;
-    setTimeout(() => { document.getElementById('sidebarBarFill').style.width = score + '%'; }, 300);
+    // ── State ─────────────────────────────────────────────────────
+    let resumeData     = JSON.parse(sessionStorage.getItem('pathpm_resume_data') || 'null');
+    let resumeFileName = sessionStorage.getItem('pathpm_resume') || '';
+    const sessionUser  = JSON.parse(sessionStorage.getItem('pathpm_user') || '{}');
+    const score        = parseInt(sessionStorage.getItem('pathpm_score') || '48');
+    const roleLabel    = sessionStorage.getItem('pathpm_role_label') || 'Growth PM';
 
-    function switchJdTab(btn, type) {
-      document.querySelectorAll('.rb-tab').forEach(t => t.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('jd-text-panel').classList.toggle('hidden', type !== 'text');
-      document.getElementById('jd-url-panel').classList.toggle('hidden', type !== 'url');
+    // ── Init ──────────────────────────────────────────────────────
+    (async () => {
+      const initials = (sessionUser.name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+      document.getElementById('topAvatar').textContent        = initials;
+      document.getElementById('sidebarAvatar').textContent    = initials;
+      document.getElementById('sidebarName').textContent      = sessionUser.name || '—';
+      document.getElementById('sidebarRoleBadge').textContent = 'Target: ' + roleLabel;
+      document.getElementById('sidebarScoreNum').textContent  = score;
+      setTimeout(() => { document.getElementById('sidebarBarFill').style.width = score + '%'; }, 300);
+
+      // Always re-parse from Supabase if experiences seem incomplete (≤1 found)
+      if (!resumeData || !resumeData.experiences || resumeData.experiences.length <= 1) {
+        await loadResumeFromSupabase();
+      }
+      updateResumeSourceBanner();
+    })();
+
+    function updateResumeSourceBanner() {
+      const banner = document.getElementById('resumeSourceBanner');
+      if (resumeData && (resumeData.experiences?.length > 0 || resumeData.currentRole)) {
+        const fname = resumeFileName || 'your uploaded resume';
+        banner.className = 'rb-source-banner loaded';
+        banner.innerHTML = `📄 Using: <strong style="margin-left:4px">${fname}</strong>`;
+      } else if (resumeData) {
+        banner.className = 'rb-source-banner loaded';
+        banner.innerHTML = `📄 Resume loaded — limited data extracted`;
+      } else {
+        banner.className = 'rb-source-banner none';
+        banner.innerHTML = `⚠️ No resume found. <a href="upload.html" style="color:inherit;font-weight:600;text-decoration:underline">Upload one first →</a>`;
+      }
     }
 
-    function onJdInput() {
-      const val = document.getElementById('jdTextarea').value.trim();
-      document.getElementById('generateBtn').style.opacity = val ? '1' : '0.6';
+    // ── PDF text extraction (same as upload.html) ─────────────────
+    async function extractText(file) {
+      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+        try {
+          const buf = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+          let text = '';
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text += content.items.map(it => it.str).join(' ') + '\n';
+          }
+          return text;
+        } catch (e) { return ''; }
+      }
+      try {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let raw = '';
+        for (let i = 0; i < bytes.length; i++) {
+          if (bytes[i] >= 32 && bytes[i] < 127) raw += String.fromCharCode(bytes[i]);
+        }
+        return raw.replace(/<[^>]+>/g, ' ');
+      } catch (e) { return ''; }
     }
 
-    /* ── JD keyword extraction ── */
+    function extractExperiences(rawText) {
+      // Fix PDF artifact: spaced-out digits in year ("'2 2" → "'22", "'1 9" → "'19")
+      const t = rawText.replace(/['\u2019](\d)\s+(\d)/g, "'$1$2");
+
+      // Collapse letter-spacing PDF artifact: "T h oucentric" → "Thoucentric", "S e n i o r" → "Senior"
+      function collapseLetterSpacing(s) {
+        return s.replace(/(?:[A-Za-z] ){2,}[A-Za-z]/g, m => m.replace(/\s/g, ''));
+      }
+
+      // Date regex: handles "'22", "2022", "Apr '19 – May '19", en/em dash or hyphen
+      const DATE_SRC = "(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\s*)?['\u2019]?(?:20\\d\\d|19\\d\\d|\\d\\d)\\s*[-\u2013\u2014]+\\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\s*)?(?:['\u2019]?(?:20\\d\\d|19\\d\\d|\\d\\d)|present|current|till[\\s]*date)";
+
+      // Find EXPERIENCE section — handle letter-spaced headers like "PROFESSI O NAL EXPERIENCE"
+      const profExpRe = /P\s*R\s*O\s*F\s*E\s*S\s*S\s*I\s*O\s*N\s*A\s*L\s+E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E|W\s*O\s*R\s*K\s+E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E|E\s*M\s*P\s*L\s*O\s*Y\s*M\s*E\s*N\s*T/i;
+      const profExpM  = profExpRe.exec(t);
+      const secStart  = profExpM ? profExpM.index + profExpM[0].length : 0;
+
+      // Find end of experience section (Education / Certifications)
+      const eduRe = /\bEDUCATION\b|\bCERTIFICATION|\bACHIEVEMENT/i;
+      const eduM  = eduRe.exec(t.slice(secStart));
+      const secEnd = eduM ? secStart + eduM.index : t.length;
+
+      const workSection = t.slice(secStart, secEnd);
+
+      // Find all date ranges in the work section
+      const dateMatches = [];
+      let m;
+      const dr = new RegExp(DATE_SRC, 'gi');
+      while ((m = dr.exec(workSection)) !== null) {
+        dateMatches.push({ start: m.index, end: m.index + m[0].length, dates: m[0].replace(/\s+/g, ' ').trim() });
+      }
+
+      if (!dateMatches.length) return [];
+
+      const SKIP    = /education|graduation|mba|b\.?tech|bachelor|master|degree|university|college|school/i;
+      const CONTACT = /@|\d{9,}|linkedin|github|http/i;
+      // Words that are part of job titles, NOT city names
+      const JOB_TITLE_WORDS = /\b(?:intern|associate|manager|analyst|engineer|developer|consultant|officer|director|head|lead|senior|junior|executive|specialist|coordinator|advisor|scientist|architect|designer|strategist|researcher)\b/i;
+      const exps    = [];
+
+      dateMatches.forEach((d, i) => {
+        const nextStart = i + 1 < dateMatches.length ? dateMatches[i + 1].start : workSection.length;
+
+        // 3+ spaces in raw PDF text = original line breaks
+        // Look at 300 chars before the date, split by 3+ spaces
+        const before   = workSection.slice(Math.max(0, d.start - 300), d.start);
+        const segments = before.split(/\s{3,}/).map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
+
+        // Walk backwards from the date — collect segments until we hit a long one (a bullet)
+        // Title / company / city are all < 70 chars; bullets are typically > 70 chars
+        const titleSegs = [];
+        for (let k = segments.length - 1; k >= 0; k--) {
+          if (segments[k].length > 70) break;
+          titleSegs.unshift(segments[k]);
+        }
+
+        const last   = titleSegs[titleSegs.length - 1] || '';
+        const second = titleSegs[titleSegs.length - 2] || '';
+        const third  = titleSegs[titleSegs.length - 3] || '';
+        const fourth = titleSegs[titleSegs.length - 4] || '';
+
+        let title = '', company = '';
+
+        // City: short (<= 20 chars), no comma, starts capital, NOT a job title word
+        const isCityLike = last.length <= 20 && !last.includes(',') && /^[A-Z]/.test(last) && !JOB_TITLE_WORDS.test(last);
+
+        if (isCityLike && second) {
+          // pattern: [..., title_parts, company, city]
+          company = collapseLetterSpacing(second.replace(/,\s*$/, '').replace(/\s+/g, ' ').trim());
+          const rawTitle = [fourth, third].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || second;
+          title = collapseLetterSpacing(rawTitle);
+        } else {
+          // last segment contains "Company, City" or just company
+          company = collapseLetterSpacing(last.replace(/,\s*[A-Za-z\s]+$/, '').replace(/\s+/g, ' ').trim());
+          title   = collapseLetterSpacing([fourth, third, second].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim());
+        }
+
+        // Clean trailing punctuation
+        title   = title.replace(/[,|·]+$/, '').trim();
+        company = company.replace(/[,|·]+$/, '').trim();
+
+        if (!title || title.length < 2 || title.length > 120) return;
+        if (SKIP.test(title) || SKIP.test(company)) return;
+        if (CONTACT.test(title)) return;
+
+        // Get bullets: text after date, split by 3+ spaces (each segment = one original line)
+        const after    = workSection.slice(d.end, nextStart);
+        const rawSegs  = after
+          .split(/\s{3,}/)
+          .map(s => s.replace(/\s+/g, ' ').trim())
+          .filter(s => s.length > 8 && /[a-z]{3,}/.test(s));
+
+        // Resume bullets always START with a past-tense action verb.
+        // Any segment that does NOT start with one is a wrapped continuation of the previous bullet.
+        const ACTION_VERB = /^(?:led|built|managed|created|designed|analyzed|defined|launched|drove|scaled|shipped|ran|owned|partnered|aligned|facilitated|collaborated|championed|spearheaded|developed|implemented|architected|established|identified|delivered|coordinated|optimized|streamlined|increased|reduced|improved|supported|executed|handled|conducted|performed|prepared|reported|presented|communicated|trained|mentored|monitored|reviewed|evaluated|assessed|recommended|proposed|initiated|planned|organized|directed|supervised|oversaw|ensured|maintained|deployed|released|tested|validated|documented|researched|investigated|synthesized|forecasted|negotiated|secured|acquired|generated|achieved|accomplished|exceeded|met|produced|completed|hired|recruited|grew|expanded|rolled|piloted|iterated|refined|enhanced|upgraded|migrated|transformed|redesigned|integrated|automated|simplified|influenced|contributed|provided|enabled|leveraged|utilized|worked|helped|assisted|served|functioned|operated)\b/i;
+
+        const merged = [];
+        for (const seg of rawSegs) {
+          const prevExists = merged.length > 0;
+          const prevEndsOpen = prevExists && !/[.!?]$/.test(merged[merged.length - 1]);
+          const startsNew = ACTION_VERB.test(seg);
+          // Merge if: starts lowercase, starts with a continuation-type capital word/number,
+          // or previous segment is clearly incomplete (no terminal punctuation) and this doesn't start a new action
+          if (prevExists && (!startsNew || prevEndsOpen && seg.length < 80)) {
+            merged[merged.length - 1] += ' ' + seg;
+          } else {
+            merged.push(seg);
+          }
+        }
+        const bullets = merged.filter(s => s.length > 15 && s.length < 600).slice(0, 6);
+
+        exps.push({ title: title.slice(0, 80), company: company.slice(0, 60), dates: d.dates, bullets });
+      });
+
+      // Deduplicate
+      const seen = new Set();
+      return exps.filter(e => {
+        const k = (e.title + e.company).toLowerCase().slice(0, 30);
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+      }).slice(0, 6);
+    }
+
+    const SKILL_MAP = {
+      'Product Roadmap':['roadmap','product roadmap'],'User Research':['user research','ux research','usability testing'],
+      'Stakeholder Mgmt':['stakeholder','cross-functional'],'Agile / Scrum':['agile','scrum','sprint','kanban','jira'],
+      'Data Analysis':['data analysis','data-driven','analytics','metrics'],'A/B Testing':['a/b test','ab test','experimentation'],
+      'SQL':['sql','mysql','postgresql','bigquery'],'Python':['python'],'Growth':['growth','acquisition','retention'],
+      'API / Integrations':['api','rest api','graphql'],'Machine Learning':['machine learning','nlp','llm'],
+      'Figma / Design':['figma','sketch','wireframe','prototyp'],'Go-to-Market':['go-to-market','gtm','product launch'],
+      'Prioritisation':['prioriti','backlog grooming'],'Business Analysis':['business analysis','business analyst'],
+      'Product Strategy':['product strategy','product vision'],'Funnel Analysis':['funnel','conversion rate','churn'],
+    };
+
+    function analyzeResumeText(text) {
+      const lower = text.toLowerCase();
+      const skills = [];
+      for (const [label, keywords] of Object.entries(SKILL_MAP)) {
+        if (keywords.some(kw => lower.includes(kw))) skills.push(label);
+        if (skills.length >= 8) break;
+      }
+      const titlePatterns = [
+        /(?:currently|working as|position[:\s]+|title[:\s]+)\s*([A-Z][a-zA-Z\s]{3,35})/i,
+        /((?:senior|lead|principal|staff|junior|associate)?\s*(?:product manager|software engineer|data analyst|business analyst|developer|consultant|analyst|engineer|manager)[^,\n]{0,40})/i,
+      ];
+      let currentRole = '';
+      for (const p of titlePatterns) { const m = text.match(p); if (m) { currentRole = m[1].trim().slice(0,40); break; } }
+      let company = '';
+      const cm = text.match(/(?:at|@|,\s*)([A-Z][a-zA-Z\s&.]{2,30})(?:\s*[|\-·•,\n])/);
+      if (cm) company = cm[1].trim();
+      const yearMatches = text.match(/20\d{2}/g) || [];
+      const years = yearMatches.map(Number).filter(y => y >= 2010 && y <= new Date().getFullYear());
+      let yearsExp = '';
+      if (years.length >= 2) { const span = Math.max(...years) - Math.min(...years); yearsExp = span <= 1 ? '< 1 year' : span + ' years'; }
+      const experiences = extractExperiences(text);
+      console.log('PathPM experiences found:', experiences.length, experiences.map(e => e.title + ' @ ' + e.company));
+      return { skills, currentRole, company, yearsExp, experiences };
+    }
+
+    // ── Load resume from Supabase if sessionStorage is empty ──────
+    async function loadResumeFromSupabase() {
+      const banner = document.getElementById('resumeSourceBanner');
+      banner.className = 'rb-source-banner loading';
+      banner.textContent = '⏳ Loading your resume…';
+      try {
+        const sbUser = await getCurrentUser();
+        if (!sbUser) return;
+
+        const { data: nameRow } = await sb.from('profiles').select('name').eq('id', sbUser.id).maybeSingle();
+        const userName = nameRow?.name || sbUser.user_metadata?.name || sbUser.email.split('@')[0];
+
+        // Step 1: Load basic profile data immediately as fallback
+        const { data: prof } = await sb.from('user_resume_profiles')
+          .select('job_role, company, industry, years_experience, skills, resume_filename')
+          .eq('user_id', sbUser.id).maybeSingle();
+
+        if (prof) {
+          resumeFileName = prof.resume_filename || '';
+          resumeData = {
+            name:        userName,
+            currentRole: prof.job_role        || '',
+            company:     prof.company         || '',
+            industry:    prof.industry        || 'Technology',
+            yearsExp:    prof.years_experience|| '',
+            skills:      prof.skills ? prof.skills.split(', ') : [],
+            experiences: [],
+          };
+        }
+
+        // Step 2: Try to download + re-parse the actual PDF to get full experiences
+        const { data: uploads } = await sb.from('resume_uploads')
+          .select('file_name, storage_path')
+          .eq('user_id', sbUser.id)
+          .order('uploaded_at', { ascending: false })
+          .limit(1);
+
+        if (uploads?.length && uploads[0].storage_path) {
+          const latest = uploads[0];
+          resumeFileName = latest.file_name;
+          const { data: urlData } = await sb.storage.from('Resumes').createSignedUrl(latest.storage_path, 120);
+          if (urlData?.signedUrl) {
+            const resp  = await fetch(urlData.signedUrl);
+            const blob  = await resp.blob();
+            const ftype = latest.file_name.toLowerCase().endsWith('.pdf') ? 'application/pdf'
+              : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            const file  = new File([blob], latest.file_name, { type: ftype });
+            const text  = await extractText(file);
+            const parsed = analyzeResumeText(text);
+            resumeData = { name: userName, ...parsed };
+          }
+        }
+
+        if (resumeData) {
+          sessionStorage.setItem('pathpm_resume_data', JSON.stringify(resumeData));
+          sessionStorage.setItem('pathpm_resume', resumeFileName);
+        }
+      } catch(e) {
+        console.warn('Could not load resume from Supabase:', e);
+      }
+    }
+
+    // ── JD keyword extraction ─────────────────────────────────────
     const PM_KEYWORDS = [
       'roadmap','a/b testing','experimentation','growth','retention','engagement',
-      'kpis','metrics','okrs','user research','customer discovery','user interviews',
-      'agile','scrum','sprint','backlog','prioritisation','prioritization','stakeholder',
-      'cross-functional','go-to-market','launch','sql','python','data analysis','analytics',
-      'machine learning','ml','ai','api','funnel','conversion','activation','onboarding',
-      'monetisation','monetization','revenue','churn','nps','product strategy',
-      'competitive analysis','market research','b2b','b2c','saas','fintech','e-commerce',
-      'design thinking','wireframes','prd','user stories','sprint planning','data-driven'
+      'kpis','metrics','okrs','user research','user interviews','agile','scrum','sprint',
+      'backlog','prioritisation','prioritization','stakeholder','cross-functional',
+      'go-to-market','launch','sql','python','data analysis','analytics','machine learning',
+      'ml','ai','api','funnel','conversion','activation','onboarding','monetisation',
+      'monetization','revenue','churn','nps','product strategy','competitive analysis',
+      'market research','b2b','b2c','saas','fintech','design thinking','wireframes',
+      'prd','user stories','sprint planning','data-driven'
     ];
 
     function extractPMKeywords(jd) {
@@ -287,138 +558,204 @@
       return m ? m[1].trim().replace(/\b\w/g, c => c.toUpperCase()) : null;
     }
 
-    function buildSummary(role, company, industry, years, skills, jdKws, target) {
-      const topSkills = skills.slice(0, 3).join(', ') || 'cross-functional collaboration, analytical thinking, and structured problem-solving';
-      const jdHighlight = jdKws.slice(0, 3).map(k => k.replace(/\b\w/g, c => c.toUpperCase())).join(', ') || 'roadmapping, stakeholder alignment, and go-to-market execution';
-      return `${role} with ${years} of experience in ${industry}, transitioning into ${target}. Demonstrated expertise in ${topSkills}, with a track record of driving business outcomes through data-informed decisions and cross-functional collaboration. Skilled in ${jdHighlight}.`;
+    // ── Build a JD-tailored summary using actual resume data ───────
+    function buildSummary(rd, jdKws, target) {
+      const role  = rd.currentRole || 'Professional';
+      const ind   = rd.industry    || 'Technology';
+      const years = rd.yearsExp    || '3+ years';
+      const skills = (rd.skills || []).slice(0, 3).join(', ') || 'cross-functional collaboration and analytical thinking';
+      const jdHL   = jdKws.slice(0, 3).map(k => k.replace(/\b\w/g, c => c.toUpperCase())).join(', ') || 'roadmapping, stakeholder alignment';
+      return `${role} with ${years} of experience in ${ind}, transitioning into ${target}. Demonstrated expertise in ${skills}, with a track record of driving outcomes through data-informed decisions. Skilled in ${jdHL}.`;
     }
 
-    function buildBullets(role, company, jdKws) {
-      const bullets = [
-        `Led cross-functional initiatives at ${company} spanning product delivery and ${role} responsibilities, improving team output by 20% through structured prioritisation and sprint planning.`,
-        `Defined and tracked key performance metrics for ${company}'s core workflows, identifying a critical drop-off point that reduced process cycle time by 18%.`,
-        `Partnered with engineering and design to scope and deliver 3 high-impact features aligned with business OKRs, each shipped on time and within budget.`,
+    // ── Tailor original bullets to align with the job description ──
+    function tailorBulletsToJD(bullets, jdText) {
+      const jdLower = (jdText || '').toLowerCase();
+
+      // Detect themes present in the JD
+      const jdHas = {
+        data:        /\bdata.driven\b|\bmetrics?\b|\banalytics?\b|\bkpi\b|\binsights?\b|\bdashboard\b/.test(jdLower),
+        stakeholder: /\bstakeholder\b|\bcross.functional\b|\bcollaborate\b|\balign\b|\bexecutive\b/.test(jdLower),
+        agile:       /\bagile\b|\bscrum\b|\bsprint\b|\bkanban\b|\biterat\b/.test(jdLower),
+        growth:      /\bgrowth\b|\bacquisition\b|\bretention\b|\bconversion\b|\brevenue\b|\bscal\b/.test(jdLower),
+        product:     /\bproduct\b|\broadmap\b|\bprioritiz\b|\bfeature\b|\blaunch\b|\bstrategy\b/.test(jdLower),
+        technical:   /\btechnical\b|\bengineering\b|\bplatform\b|\bapi\b|\barchitect\b|\binfrastructure\b/.test(jdLower),
+        user:        /\buser research\b|\buser experience\b|\bux\b|\bcustomer\b|\bfeedback\b/.test(jdLower),
+      };
+
+      // Theme-specific strong action verbs for replacing weak openers
+      const THEME_VERBS = {
+        data:        ['Analyzed', 'Leveraged', 'Measured', 'Tracked', 'Synthesized'],
+        stakeholder: ['Aligned', 'Partnered with', 'Facilitated', 'Coordinated', 'Collaborated with'],
+        agile:       ['Facilitated', 'Streamlined', 'Iterated on', 'Ran', 'Prioritized'],
+        growth:      ['Scaled', 'Optimized', 'Drove', 'Boosted', 'Grew'],
+        product:     ['Defined', 'Spearheaded', 'Owned', 'Shaped', 'Led'],
+        technical:   ['Architected', 'Implemented', 'Built', 'Shipped', 'Integrated'],
+        user:        ['Championed', 'Incorporated', 'Synthesized', 'Validated', 'Researched'],
+      };
+
+      // Bullet content → JD theme matching
+      const BULLET_THEME_HINTS = [
+        [/analy|report|metric|dashboard|data|insight|kpi/i,             'data'],
+        [/stakeholder|partner|client|executive|leadership|align/i,      'stakeholder'],
+        [/sprint|agile|scrum|delivery|backlog|iteration|roadmap/i,      'agile'],
+        [/revenue|growth|sales|user|customer|retention|acquisition/i,   'growth'],
+        [/product|feature|launch|prioriti|strategy|scope/i,             'product'],
+        [/techni|engineer|develop|build|integrat|implement|api|system/i,'technical'],
+        [/user research|ux|usability|interview|feedback|persona/i,      'user'],
       ];
-      if (jdKws.includes('a/b testing') || jdKws.includes('experimentation')) {
-        bullets[0] = `Designed and ran A/B experiments at ${company} to optimise key user flows, improving conversion rates by 17% over two quarters.`;
-      } else if (jdKws.includes('growth') || jdKws.includes('retention')) {
-        bullets[0] = `Drove growth and retention initiatives at ${company}, contributing to a 22% increase in 30-day active users through targeted funnel improvements.`;
-      } else if (jdKws.includes('sql') || jdKws.includes('data analysis')) {
-        bullets[0] = `Built dashboards and data pipelines at ${company} to surface product health metrics, enabling the team to make data-driven decisions 40% faster.`;
+
+      // Weak verb patterns to replace
+      const WEAK_VERBS = [
+        /^responsible for\s+/i,
+        /^worked on\s+/i,
+        /^helped (?:with\s+)?/i,
+        /^assisted (?:with\s+)?/i,
+        /^was involved in\s+/i,
+        /^was part of\s+/i,
+        /^did\s+/i,
+        /^handled\s+/i,
+        /^participated in\s+/i,
+      ];
+
+      function pickVerb(theme) {
+        const pool = THEME_VERBS[theme] || THEME_VERBS.product;
+        return pool[Math.floor(Math.random() * Math.min(3, pool.length))];
       }
-      if (jdKws.includes('stakeholder') || jdKws.includes('cross-functional')) {
-        bullets[1] = `Aligned cross-functional teams (engineering, design, marketing) at ${company} around a unified roadmap, reducing scope creep by 25% and accelerating delivery cycles.`;
-      }
-      if (jdKws.includes('agile') || jdKws.includes('scrum') || jdKws.includes('sprint')) {
-        bullets[2] = `Introduced Agile ceremonies and sprint cadences at ${company}, improving team velocity by 30% and reducing unplanned work to under 10% of sprint capacity.`;
-      }
-      return bullets;
+
+      return bullets.map(b => {
+        if (!b || b.length < 5) return b;
+        let t = b.trim();
+
+        // Fix capitalisation
+        t = t.charAt(0).toUpperCase() + t.slice(1);
+
+        // Detect which JD theme this bullet is closest to
+        let theme = 'product';
+        for (const [pattern, t_] of BULLET_THEME_HINTS) {
+          if (jdHas[t_] && pattern.test(t)) { theme = t_; break; }
+        }
+
+        // Replace weak opener with a strong, JD-aligned action verb
+        let replaced = false;
+        for (const pattern of WEAK_VERBS) {
+          if (pattern.test(t)) {
+            const rest = t.replace(pattern, '');
+            // Keep rest as-is (original words), just prepend a strong verb
+            t = pickVerb(theme) + ' ' + rest.charAt(0).toLowerCase() + rest.slice(1);
+            replaced = true;
+            break;
+          }
+        }
+
+        // If bullet doesn't start with a past-tense action verb, prefix a fitting one
+        if (!replaced && !/^[A-Z][a-z]+(ed|d)\b|^(?:Led|Built|Managed|Created|Designed|Analyzed|Defined|Launched|Drove|Scaled|Shipped|Ran|Owned|Partnered|Aligned|Facilitated|Collaborated|Championed|Spearheaded|Developed|Implemented|Architected|Established|Identified|Delivered|Coordinated|Optimized|Streamlined|Increased|Reduced|Improved)\b/i.test(t)) {
+          t = pickVerb(theme) + ' ' + t.charAt(0).toLowerCase() + t.slice(1);
+        }
+
+        // Ensure ends with a period
+        if (!/[.!?]$/.test(t)) t += '.';
+        return t;
+      });
     }
 
     function buildCompetencies(userSkills, jdKws) {
-      const base = userSkills.slice(0, 4);
-      const pmPool = ['Product Strategy','Roadmapping','A/B Testing','Stakeholder Mgmt','Data Analysis','Agile / Scrum','User Research','Go-to-Market','Prioritisation'];
-      const extras = pmPool.filter(c =>
+      const base = (userSkills || []).slice(0, 4);
+      const pool = ['Product Strategy','Roadmapping','A/B Testing','Stakeholder Mgmt','Data Analysis','Agile / Scrum','User Research','Go-to-Market','Prioritisation'];
+      const extras = pool.filter(c =>
         !base.some(b => b.toLowerCase().includes(c.toLowerCase().split(' ')[0].toLowerCase())) &&
         jdKws.some(k => c.toLowerCase().includes(k.split('/')[0].trim()))
       ).slice(0, 3);
       return [...base, ...extras].slice(0, 6);
     }
 
-    function buildChanges(matched, injected, role, target) {
+    function buildChanges(rd, jdKws, matched, jobTitle) {
+      const expCount = rd?.experiences?.length || 0;
       let html = '';
-      if (injected.length) html += `<div class="change-item"><span class="change-dot green"></span><div><strong>Keywords Injected</strong><p>Added ${injected.length} high-frequency terms from the JD: <em>${injected.slice(0,5).join(', ')}</em></p></div></div>`;
-      html += `<div class="change-item"><span class="change-dot green"></span><div><strong>Summary Reframed</strong><p>Repositioned your ${role} background as ${target}-relevant, emphasising transferable impact and PM-adjacent skills.</p></div></div>`;
-      if (matched.length) html += `<div class="change-item"><span class="change-dot green"></span><div><strong>Skills Matched</strong><p>${matched.slice(0,4).join(', ')} from your profile directly matched this JD — surfaced prominently.</p></div></div>`;
-      html += `<div class="change-item"><span class="change-dot green"></span><div><strong>Bullets Rewritten</strong><p>Experience bullets now lead with impact metrics and action verbs aligned with how PM hiring managers evaluate candidates.</p></div></div>`;
+      html += `<div class="change-item"><span class="change-dot green"></span><div><strong>Your Resume Used as Base</strong><p>${expCount > 0 ? expCount + ' real experience entr' + (expCount > 1 ? 'ies' : 'y') + ' from your uploaded resume preserved.' : 'Resume profile used to personalise your summary and skills.'}</p></div></div>`;
+      if (jdKws.length) html += `<div class="change-item"><span class="change-dot green"></span><div><strong>JD Keywords Injected</strong><p>Surfaced ${jdKws.length} high-frequency terms: <em>${jdKws.slice(0,5).join(', ')}</em></p></div></div>`;
+      html += `<div class="change-item"><span class="change-dot green"></span><div><strong>Summary Tailored</strong><p>Repositioned your background towards <strong>${jobTitle}</strong>, highlighting transferable PM-adjacent skills.</p></div></div>`;
+      if (matched.length) html += `<div class="change-item"><span class="change-dot green"></span><div><strong>Skills Matched</strong><p>${matched.slice(0,4).join(', ')} from your profile directly matched this JD.</p></div></div>`;
+      html += `<div class="change-item"><span class="change-dot green"></span><div><strong>Bullets Strengthened</strong><p>All original experience bullets preserved and polished — passive phrases replaced with strong action verbs.</p></div></div>`;
       return html;
     }
 
+    // ── Generate ──────────────────────────────────────────────────
     function generateResume() {
       const jdText = document.getElementById('jdTextarea').value.trim();
       const jdUrl  = document.getElementById('jdUrl').value.trim();
-
-      // URL fetching requires a server — guide user to paste text instead
       if (!jdText && jdUrl) {
-        showToast('Please copy and paste the job description text — URL fetching requires a server.');
+        showToast('Please paste the job description text — URL fetching requires a server.');
         switchJdTab(document.querySelectorAll('.rb-tab')[0], 'text');
         return;
       }
-
       if (!jdText) { showToast('Paste a job description first!'); return; }
 
       const btn = document.getElementById('generateBtn');
-      btn.textContent = 'Generating...';
+      btn.textContent = 'Generating…';
       btn.disabled = true;
 
       setTimeout(() => {
-        // Pull user's actual resume data from sessionStorage
-        const rd = JSON.parse(sessionStorage.getItem('pathpm_resume_data') || '{}');
-        const sg = JSON.parse(sessionStorage.getItem('pathpm_skill_gap')   || '{}');
+        const rd       = resumeData || {};
+        const sg       = JSON.parse(sessionStorage.getItem('pathpm_skill_gap') || '{}');
+        const userName = rd.name || sessionUser.name || 'Your Name';
+        const skills   = rd.skills?.length ? rd.skills : (sg.have || []);
+        const role     = rd.currentRole || 'Professional';
+        const company  = rd.company     || 'Previous Company';
 
-        const userName   = rd.name        || user.name        || 'Your Name';
-        const role       = rd.currentRole || 'Professional';
-        const company    = rd.company     || 'Previous Company';
-        const industry   = rd.industry    || 'Technology';
-        const years      = rd.yearsExp    || '3+ years';
-        const userSkills = (rd.skills && rd.skills.length) ? rd.skills : (sg.have || []);
+        const jdKws    = extractPMKeywords(jdText);
+        const jobTitle = extractJobTitle(jdText) || ('Senior ' + roleLabel);
+        const matched  = skills.filter(s => jdText.toLowerCase().includes(s.toLowerCase()));
+        const atsScore = Math.min(94, 52 + jdKws.length * 2 + matched.length * 3);
 
-        const jdKws       = extractPMKeywords(jdText);
-        const jobTitle    = extractJobTitle(jdText) || ('Senior ' + roleLabel);
-        const matched     = userSkills.filter(s => jdText.toLowerCase().includes(s.toLowerCase()));
-        const injected    = jdKws.slice(0, 8);
-        const atsScore    = Math.min(94, 52 + jdKws.length * 2 + matched.length * 3);
+        const summary      = buildSummary(rd, jdKws, jobTitle);
+        const competencies = buildCompetencies(skills, jdKws);
+        const changesHtml  = buildChanges(rd, jdKws, matched, jobTitle);
 
-        const summary      = buildSummary(role, company, industry, years, userSkills, jdKws, roleLabel);
-        const bullets      = buildBullets(role, company, jdKws);
-        const competencies = buildCompetencies(userSkills, jdKws);
-        const changesHtml  = buildChanges(matched, injected, role, roleLabel);
-
-        // Build experience section — use parsed entries if available, else fall back
-        const expEntries = (rd.experiences && rd.experiences.length > 0) ? rd.experiences : null;
-        let expHTML = '<p class="rs-label">PROFESSIONAL EXPERIENCE</p>';
+        // ── Build experience section from ACTUAL resume data ──────
+        const expEntries = rd.experiences?.length > 0 ? rd.experiences : null;
+        let expHTML = '';
 
         if (expEntries) {
-          expEntries.forEach((exp, idx) => {
-            // For the most recent role, use JD-tailored bullets; keep older roles as-is
-            const entryBullets = idx === 0
-              ? bullets.map(b => `<li data-editable>${b}</li>`).join('')
-              : (exp.bullets.length > 0
-                  ? exp.bullets.map(b => `<li data-editable>${b}</li>`).join('')
-                  : `<li data-editable>Contributed to key initiatives in ${exp.title || role} capacity, delivering measurable outcomes across cross-functional projects.</li>`);
+          expEntries.forEach((exp) => {
+            // Keep ALL original bullets, rephrase to align with JD
+            const bullets = exp.bullets.length > 0
+              ? tailorBulletsToJD(exp.bullets, jdText)
+              : [];
+            const title = [exp.title, exp.company].filter(Boolean).join(' — ');
             expHTML += `
               <div class="rs-exp-entry">
                 <div class="rs-exp">
-                  <strong data-editable>${exp.title}${exp.company ? ' — ' + exp.company : ''}</strong>
+                  <strong data-editable>${title}</strong>
                   <span data-editable>${exp.dates || ''}</span>
                 </div>
-                <ul class="rs-bullets">${entryBullets}</ul>
+                <ul class="rs-bullets">${bullets.map(b => `<li data-editable>${b}</li>`).join('')}</ul>
               </div>`;
           });
         } else {
-          // No parsed experiences — use single entry from basic fields
-          expHTML += `
+          // Fallback only when resume has no parsed experiences at all
+          expHTML = `
             <div class="rs-exp-entry">
               <div class="rs-exp">
                 <strong data-editable>${role} — ${company}</strong>
-                <span data-editable>${years}</span>
+                <span data-editable>${rd.yearsExp || ''}</span>
               </div>
-              <ul class="rs-bullets" id="resumeBullets">${bullets.map(b => `<li data-editable>${b}</li>`).join('')}</ul>
+              <ul class="rs-bullets"><li data-editable>Add your experience bullets here.</li></ul>
             </div>`;
         }
 
         // Populate resume doc
-        document.getElementById('resumeName').textContent        = userName.toUpperCase();
-        document.getElementById('resumeJobTitle').textContent    = jobTitle;
-        document.getElementById('resumeSubtitle').textContent    = userName + ' · Tailored for ' + jobTitle;
-        document.getElementById('currentTitle').textContent      = role;
-        document.getElementById('atsScore').textContent          = atsScore;
-        document.getElementById('resumeSummary').textContent     = summary;
-        document.getElementById('resumeExperience').innerHTML    = expHTML;
-        document.querySelector('.rs-tags').innerHTML             = competencies.map(c => `<span class="rs-tag" data-editable>${c}</span>`).join('');
-        document.getElementById('changesList').innerHTML         = changesHtml;
-        document.getElementById('dlRole').textContent            = jobTitle;
-        document.getElementById('dlScore').textContent           = atsScore;
+        document.getElementById('resumeName').textContent     = userName.toUpperCase();
+        document.getElementById('resumeJobTitle').textContent = jobTitle;
+        document.getElementById('resumeSubtitle').textContent = userName + ' · Tailored for ' + jobTitle;
+        document.getElementById('currentTitle').textContent   = role;
+        document.getElementById('atsScore').textContent       = atsScore;
+        document.getElementById('resumeSummary').textContent  = summary;
+        document.getElementById('resumeExperience').innerHTML = expHTML;
+        document.querySelector('.rs-tags').innerHTML = competencies.map(c => `<span class="rs-tag" data-editable>${c}</span>`).join('');
+        document.getElementById('changesList').innerHTML = changesHtml;
+        document.getElementById('dlRole').textContent    = jobTitle;
+        document.getElementById('dlScore').textContent   = atsScore;
 
         // Show sections
         document.getElementById('resumePlaceholder').classList.add('hidden');
@@ -435,19 +772,26 @@
         (async () => {
           const sbUser = await getCurrentUser();
           if (!sbUser) return;
-          const savedBullets = [...document.querySelectorAll('#resumeBullets li')].map(l => l.innerText);
-          const savedTags    = [...document.querySelectorAll('.rs-tag')].map(t => t.innerText);
+          const savedTags = [...document.querySelectorAll('.rs-tag')].map(t => t.innerText);
           await sb.from('tailored_resumes').insert({
-            user_id:      sbUser.id,
-            job_title:    jobTitle,
-            ats_score:    atsScore,
-            summary:      summary,
-            bullets:      savedBullets,
-            competencies: savedTags,
-            jd_text:      jdText
+            user_id: sbUser.id, job_title: jobTitle, ats_score: atsScore,
+            summary, competencies: savedTags, jd_text: jdText
           });
         })();
       }, 1800);
+    }
+
+    // ── Tab switch ────────────────────────────────────────────────
+    function switchJdTab(btn, type) {
+      document.querySelectorAll('.rb-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('jd-text-panel').classList.toggle('hidden', type !== 'text');
+      document.getElementById('jd-url-panel').classList.toggle('hidden', type !== 'url');
+    }
+
+    function onJdInput() {
+      const val = document.getElementById('jdTextarea').value.trim();
+      document.getElementById('generateBtn').style.opacity = val ? '1' : '0.6';
     }
 
     function loadPrevious(title) {
@@ -459,90 +803,48 @@
       showToast('Loaded: ' + title);
     }
 
-    // ── Inline editing ────────────────────────────────
+    // ── Inline editing ────────────────────────────────────────────
     let editMode = false;
-
     function toggleEditMode() {
       editMode = !editMode;
       const doc = document.getElementById('resumeDoc');
       const btn = document.getElementById('editToggleBtn');
-
       doc.classList.toggle('edit-mode', editMode);
       btn.textContent = editMode ? '✓ Done' : '✏ Edit';
       btn.classList.toggle('editing', editMode);
-
       doc.querySelectorAll('[data-editable]').forEach(el => {
         el.contentEditable = editMode ? 'true' : 'false';
         if (editMode) el.setAttribute('spellcheck', 'false');
       });
-
       if (editMode) showToast('Edit mode on — click any text to change it');
     }
 
+    // ── Download ──────────────────────────────────────────────────
     function downloadResume() {
       const doc = document.getElementById('resumeDoc');
       if (doc.classList.contains('hidden')) { showToast('Generate a resume first!'); return; }
-
       showToast('Preparing your PDF…');
-
       const name    = document.getElementById('resumeName').innerText || 'Resume';
       const roleTag = doc.querySelector('.resume-role-tag')?.innerText || 'PRODUCT MANAGER';
       const summary = document.getElementById('resumeSummary').innerText;
       const tags    = [...document.querySelectorAll('.rs-tag')].map(t => `<span class="rs-tag">${t.innerText}</span>`).join('');
-
-      // Build experience HTML from all dynamic entries
-      const expEntriesDOM = doc.querySelectorAll('.rs-exp-entry');
       let expHTML = '';
-      expEntriesDOM.forEach(entry => {
+      doc.querySelectorAll('.rs-exp-entry').forEach(entry => {
         const strong = entry.querySelector('.rs-exp strong')?.innerText || '';
         const span   = entry.querySelector('.rs-exp span')?.innerText   || '';
         const lis    = [...entry.querySelectorAll('li')].map(l => `<li>${l.innerText}</li>`).join('');
         expHTML += `<div class="rs-exp"><strong>${strong}</strong><span>${span}</span></div><ul>${lis}</ul>`;
       });
-
-      const html = `<!DOCTYPE html>
-<html><head>
-<meta charset="UTF-8"/>
-<title>${name} – Resume</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; color: #111; background: #fff; padding: 48px 56px; max-width: 760px; margin: 0 auto; }
-  h2 { font-size: 1.5rem; letter-spacing: 0.08em; color: #111; font-weight: 800; }
-  .resume-role-tag { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; color: #6b7280; margin: 6px 0 0; }
-  .resume-name-block { border-bottom: 2px solid #111; padding-bottom: 16px; margin-bottom: 22px; }
-  .resume-section { margin-bottom: 20px; }
-  .rs-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; color: #9ca3af; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; margin-bottom: 10px; text-transform: uppercase; }
-  .rs-body { font-size: 0.83rem; line-height: 1.65; color: #374151; }
-  .rs-exp { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.84rem; font-weight: 700; color: #111; margin-bottom: 8px; }
-  .rs-exp span { font-weight: 400; color: #6b7280; font-size: 0.78rem; }
-  ul { padding-left: 18px; margin-top: 0; }
-  li { font-size: 0.81rem; line-height: 1.65; color: #374151; margin-bottom: 5px; }
-  .rs-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-  .rs-tag { font-size: 0.72rem; background: #f3f4f6; border-radius: 20px; padding: 4px 12px; color: #374151; }
-  @media print { body { padding: 0; } }
-</style>
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${name} – Resume</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111;background:#fff;padding:48px 56px;max-width:760px;margin:0 auto}h2{font-size:1.5rem;letter-spacing:.08em;color:#111;font-weight:800}.resume-role-tag{font-size:.68rem;font-weight:700;letter-spacing:.12em;color:#6b7280;margin:6px 0 0}.resume-name-block{border-bottom:2px solid #111;padding-bottom:16px;margin-bottom:22px}.resume-section{margin-bottom:20px}.rs-label{font-size:.6rem;font-weight:700;letter-spacing:.12em;color:#9ca3af;border-bottom:1px solid #e5e7eb;padding-bottom:5px;margin-bottom:10px;text-transform:uppercase}.rs-body{font-size:.83rem;line-height:1.65;color:#374151}.rs-exp{display:flex;justify-content:space-between;align-items:baseline;font-size:.84rem;font-weight:700;color:#111;margin-bottom:8px}.rs-exp span{font-weight:400;color:#6b7280;font-size:.78rem}ul{padding-left:18px;margin-top:0}li{font-size:.81rem;line-height:1.65;color:#374151;margin-bottom:5px}.rs-tags{display:flex;flex-wrap:wrap;gap:6px}.rs-tag{font-size:.72rem;background:#f3f4f6;border-radius:20px;padding:4px 12px;color:#374151}@media print{body{padding:0}}</style>
 </head><body>
-  <div class="resume-name-block">
-    <h2>${name}</h2>
-    <p class="resume-role-tag">${roleTag}</p>
-  </div>
-  <div class="resume-section">
-    <p class="rs-label">Professional Summary</p>
-    <p class="rs-body">${summary}</p>
-  </div>
-  <div class="resume-section">
-    <p class="rs-label">Professional Experience</p>
-    ${expHTML}
-  </div>
-  <div class="resume-section">
-    <p class="rs-label">Key Competencies</p>
-    <div class="rs-tags">${tags}</div>
-  </div>
+<div class="resume-name-block"><h2>${name}</h2><p class="resume-role-tag">${roleTag}</p></div>
+<div class="resume-section"><p class="rs-label">Professional Summary</p><p class="rs-body">${summary}</p></div>
+<div class="resume-section"><p class="rs-label">Professional Experience</p>${expHTML}</div>
+<div class="resume-section"><p class="rs-label">Key Competencies</p><div class="rs-tags">${tags}</div></div>
 </body></html>`;
-
       const w = window.open('', '_blank', 'width=820,height=1000');
-      w.document.write(html);
-      w.document.close();
+      w.document.write(html); w.document.close();
       setTimeout(() => { w.focus(); w.print(); }, 600);
     }
 

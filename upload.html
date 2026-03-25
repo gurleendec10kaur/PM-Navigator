@@ -284,62 +284,112 @@
       return { recommendedRole, skills, industry, currentRole, company, yearsExp, scores, experiences };
     }
 
-    function extractExperiences(text) {
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      const exps   = [];
-      const dateRe = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*)?(?:20\d{2})\s*[-–—to]+\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*)?(?:20\d{2}|present|current)/i;
-      const bulletRe = /^[•\-*◦▪·]\s+.{8,}/;
-      const skipRe   = /^(education|skills|certifications?|projects?|summary|objective|references?|publications?|awards?|interests?|languages?)/i;
+    function extractExperiences(rawText) {
+      // Fix PDF artifact: spaced-out digits in year ("'2 2" → "'22")
+      const t = rawText.replace(/['\u2019](\d)\s+(\d)/g, "'$1$2");
 
-      let cur = null;
-      let inExp = false;
-      const expHeaderRe = /^(experience|work experience|employment|professional experience|career history|work history)/i;
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const next = lines[i + 1] || '';
-
-        if (expHeaderRe.test(line)) { inExp = true; continue; }
-        if (inExp && skipRe.test(line)) break;
-
-        const lineHasDate = dateRe.test(line);
-        const nextHasDate = dateRe.test(next);
-        const isBullet    = bulletRe.test(line);
-
-        // Detect start of a new experience entry
-        if (!isBullet && (lineHasDate || (!inExp && nextHasDate)) && line.length > 3 && line.length < 120) {
-          if (cur) exps.push(cur);
-
-          // Split "Title | Company | Dates" or "Title — Company"
-          const parts = line.split(/\s*[|·—]\s*/).map(p => p.trim());
-          let title   = parts[0] || line;
-          let co      = parts[1] || '';
-
-          // Pull dates out
-          const dm = line.match(dateRe);
-          let dates = dm ? dm[0] : '';
-          if (dm) {
-            title = title.replace(dateRe, '').replace(/[-–—|·,]+$/, '').trim();
-            co    = co.replace(dateRe, '').replace(/[-–—|·,]+$/, '').trim();
-          } else if (nextHasDate) {
-            const ndm = next.match(dateRe);
-            if (ndm) { dates = ndm[0]; i++; }
-          }
-
-          if (title.length > 2) {
-            cur = { title: title.slice(0, 60), company: co.slice(0, 50), dates: dates.slice(0, 25), bullets: [] };
-            inExp = true;
-          }
-        } else if (cur && isBullet) {
-          const b = line.replace(/^[•\-*◦▪·]\s*/, '').trim();
-          if (b.length > 10 && b.length < 280 && cur.bullets.length < 5) cur.bullets.push(b);
-        } else if (cur && !isBullet && !cur.company && line.length < 60 && /^[A-Z]/.test(line) && !dateRe.test(line)) {
-          cur.company = line;
-        }
+      // Collapse letter-spacing PDF artifact: "T h oucentric" → "Thoucentric"
+      function collapseLetterSpacing(s) {
+        return s.replace(/(?:[A-Za-z] ){2,}[A-Za-z]/g, m => m.replace(/\s/g, ''));
       }
 
-      if (cur) exps.push(cur);
-      return exps.filter(e => e.title && (e.bullets.length > 0 || e.company || e.dates)).slice(0, 4);
+      // Date regex: handles "'22", "2022", "Apr '19 – May '19", en/em dash or hyphen
+      const DATE_SRC = "(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\s*)?['\u2019]?(?:20\\d\\d|19\\d\\d|\\d\\d)\\s*[-\u2013\u2014]+\\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\s*)?(?:['\u2019]?(?:20\\d\\d|19\\d\\d|\\d\\d)|present|current|till[\\s]*date)";
+
+      // Find EXPERIENCE section — handle letter-spaced headers like "PROFESSI O NAL EXPERIENCE"
+      const profExpRe = /P\s*R\s*O\s*F\s*E\s*S\s*S\s*I\s*O\s*N\s*A\s*L\s+E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E|W\s*O\s*R\s*K\s+E\s*X\s*P\s*E\s*R\s*I\s*E\s*N\s*C\s*E|E\s*M\s*P\s*L\s*O\s*Y\s*M\s*E\s*N\s*T/i;
+      const profExpM  = profExpRe.exec(t);
+      const secStart  = profExpM ? profExpM.index + profExpM[0].length : 0;
+
+      // Find end of experience section (Education / Certifications)
+      const eduRe = /\bEDUCATION\b|\bCERTIFICATION|\bACHIEVEMENT/i;
+      const eduM  = eduRe.exec(t.slice(secStart));
+      const secEnd = eduM ? secStart + eduM.index : t.length;
+
+      const workSection = t.slice(secStart, secEnd);
+
+      // Find all date ranges in the work section
+      const dateMatches = [];
+      let m;
+      const dr = new RegExp(DATE_SRC, 'gi');
+      while ((m = dr.exec(workSection)) !== null) {
+        dateMatches.push({ start: m.index, end: m.index + m[0].length, dates: m[0].replace(/\s+/g, ' ').trim() });
+      }
+
+      if (!dateMatches.length) return [];
+
+      const SKIP    = /education|graduation|mba|b\.?tech|bachelor|master|degree|university|college|school/i;
+      const CONTACT = /@|\d{9,}|linkedin|github|http/i;
+      const JOB_TITLE_WORDS = /\b(?:intern|associate|manager|analyst|engineer|developer|consultant|officer|director|head|lead|senior|junior|executive|specialist|coordinator|advisor|scientist|architect|designer|strategist|researcher)\b/i;
+      const exps    = [];
+
+      dateMatches.forEach((d, i) => {
+        const nextStart = i + 1 < dateMatches.length ? dateMatches[i + 1].start : workSection.length;
+
+        const before   = workSection.slice(Math.max(0, d.start - 300), d.start);
+        const segments = before.split(/\s{3,}/).map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
+
+        // Walk backwards — collect segments until we hit a long one (a bullet)
+        const titleSegs = [];
+        for (let k = segments.length - 1; k >= 0; k--) {
+          if (segments[k].length > 70) break;
+          titleSegs.unshift(segments[k]);
+        }
+
+        const last   = titleSegs[titleSegs.length - 1] || '';
+        const second = titleSegs[titleSegs.length - 2] || '';
+        const third  = titleSegs[titleSegs.length - 3] || '';
+        const fourth = titleSegs[titleSegs.length - 4] || '';
+
+        let title = '', company = '';
+
+        // City: short, no comma, starts capital, NOT a job title word
+        const isCityLike = last.length <= 20 && !last.includes(',') && /^[A-Z]/.test(last) && !JOB_TITLE_WORDS.test(last);
+
+        if (isCityLike && second) {
+          company = collapseLetterSpacing(second.replace(/,\s*$/, '').replace(/\s+/g, ' ').trim());
+          const rawTitle = [fourth, third].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || second;
+          title = collapseLetterSpacing(rawTitle);
+        } else {
+          company = collapseLetterSpacing(last.replace(/,\s*[A-Za-z\s]+$/, '').replace(/\s+/g, ' ').trim());
+          title   = collapseLetterSpacing([fourth, third, second].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim());
+        }
+
+        title   = title.replace(/[,|·]+$/, '').trim();
+        company = company.replace(/[,|·]+$/, '').trim();
+
+        if (!title || title.length < 2 || title.length > 120) return;
+        if (SKIP.test(title) || SKIP.test(company)) return;
+        if (CONTACT.test(title)) return;
+
+        // Get bullets: split by 3+ spaces, then merge wrapped lines
+        const after    = workSection.slice(d.end, nextStart);
+        const rawSegs  = after
+          .split(/\s{3,}/)
+          .map(s => s.replace(/\s+/g, ' ').trim())
+          .filter(s => s.length > 8 && /[a-z]{3,}/.test(s));
+
+        const CONT_START = /^(?:[a-z]|and\b|or\b|to\b|in\b|on\b|at\b|with\b|for\b|by\b|of\b|the\b|a\b|an\b|that\b|which\b|who\b|as\b|while\b|through\b|across\b|including\b|such\b)/;
+        const mergedSegs = [];
+        for (const seg of rawSegs) {
+          if (mergedSegs.length > 0 && CONT_START.test(seg)) {
+            mergedSegs[mergedSegs.length - 1] += ' ' + seg;
+          } else {
+            mergedSegs.push(seg);
+          }
+        }
+        const bullets = mergedSegs.filter(s => s.length > 15 && s.length < 500).slice(0, 6);
+
+        exps.push({ title: title.slice(0, 80), company: company.slice(0, 60), dates: d.dates, bullets });
+      });
+
+      // Deduplicate
+      const seen = new Set();
+      return exps.filter(e => {
+        const k = (e.title + e.company).toLowerCase().slice(0, 30);
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+      }).slice(0, 6);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -363,7 +413,6 @@
       const { data: profile } = await sb.from('profiles').select('name').eq('id', currentUser.id).maybeSingle();
       const name = profile?.name || currentUser.user_metadata?.name || currentUser.email.split('@')[0];
       sessionStorage.setItem('pathpm_user', JSON.stringify({ name, email: currentUser.email }));
-      document.getElementById('nav-username').textContent = name;
       document.getElementById('nav-avatar').textContent = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
       // Load previous uploads
