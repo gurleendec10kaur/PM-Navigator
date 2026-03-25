@@ -150,16 +150,17 @@
 <body class="quiz-page">
 
   <nav class="quiz-nav">
-    <div style="display:flex;align-items:center;gap:16px;">
-      <a href="dashboard.html" class="btn-back">← Back</a>
-      <a href="welcome.html" class="logo">&#9632; PathPM</a>
-    </div>
+    <a href="welcome.html" class="logo">&#9632; PathPM</a>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="navRoleTag" class="quiz-topic-tag"></span>
       <button class="signout-btn" onclick="signOut()">Sign out</button>
       <div class="user-avatar" id="nav-avatar">?</div>
     </div>
   </nav>
+  <header class="db-topbar" style="position:relative;">
+    <div class="topbar-left"><a href="dashboard.html" class="btn-back">← Back</a></div>
+    <div class="topbar-right"></div>
+  </header>
 
   <div class="quiz-body">
     <div class="quiz-card" id="quizCard">
