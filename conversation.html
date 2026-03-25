@@ -23,8 +23,7 @@
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
-      <button class="save-exit-btn" onclick="handleSave()">Save</button>
-      <button class="signout-btn" onclick="window.location.href='dashboard.html'" style="background:none;border:1px solid var(--border);color:var(--text-muted);">Skip for now</button>
+<button class="signout-btn" onclick="window.location.href='dashboard.html'" style="background:none;border:1px solid var(--border);color:var(--text-muted);">Skip for now</button>
       <button class="signout-btn" onclick="signOut()">Sign out</button>
       <div class="user-avatar" id="nav-avatar">?</div>
     </div>
@@ -255,10 +254,8 @@
         setTimeout(() => {
           removeTypingIndicator();
           appendMessage('ai', questions[index].text, true, () => {
-            if (index > 0) {  // skip chips on opening intro message
-              showStarterChips(questions[index].probe);
-              showFrameworkHint(questions[index].probe, questions[index].text);
-            }
+            showStarterChips(questions[index].probe);
+            showFrameworkHint(questions[index].probe, questions[index].text);
           });
           isTyping = false;
           setSendEnabled(true);
@@ -283,13 +280,15 @@
         // Hide input
         document.querySelector('.chat-input-area').style.display = 'none';
 
-        // Save conversation to Supabase
+        // Score conversation quality then save
+        const convoScore = scoreConversation(convoHistory);
+
         (async () => {
           const user = await getCurrentUser();
           if (!user) return;
           const role      = sessionStorage.getItem('pathpm_role') || 'growth';
           const baseScore = parseInt(sessionStorage.getItem('pathpm_score') || '48');
-          const newScore  = Math.min(baseScore + 8, 99);   // conversation adds up to 8 pts
+          const newScore  = Math.min(baseScore + convoScore, 99);
 
           await sb.from('ai_conversations').insert({
             user_id:         user.id,
@@ -498,26 +497,6 @@
     }
 
     /* ─── SKIP ─── */
-    async function handleSave() {
-      sessionStorage.setItem('pathpm_convo', JSON.stringify(convoHistory));
-
-      // Save progress to Supabase
-      const currentUser = await getCurrentUser();
-      if (currentUser) {
-        const baseScore = parseInt(sessionStorage.getItem('pathpm_score') || '48');
-        await sb.from('ai_conversations').insert({
-          user_id:         currentUser.id,
-          role_key:        role,
-          messages:        convoHistory,
-          questions_asked: convoHistory.length,
-          completed:       false,
-          score_after:     baseScore,
-          completed_at:    new Date().toISOString()
-        }).then(() => {});   // fire-and-forget
-      }
-
-      showConvoToast('Progress saved!');
-    }
 
     function showConvoToast(msg) {
       const toast = document.getElementById('convoToast');
@@ -643,6 +622,55 @@
       const arrow = toggle.querySelector('svg');
       body.classList.toggle('open');
       arrow.style.transform = body.classList.contains('open') ? 'rotate(180deg)' : '';
+    }
+
+    /* ─── CONVERSATION SCORING ─── */
+    function scoreConversation(history) {
+      // Extract only user messages
+      const userMsgs = history.filter(m => m.role === 'user').map(m => (m.content || m.text || '').toLowerCase());
+      if (!userMsgs.length) return 2;
+
+      // Signal sets — each detected in an answer scores points
+      const FRAMEWORKS = /\b(rice|ice|moscow|okr|okrs|north star|5 whys|five whys|kpi|kpis|a\/b test|hypothesis|swot|jobs.to.be.done|jtbd|user story|sprint|scrum|kanban|roadmap|prioriti|trade.off|root cause|funnel|retention|churn|ltv|cac|nps|csat|dau|mau)\b/;
+      const STRUCTURE  = /\b(because|therefore|however|first|second|third|the reason|this means|as a result|in order to|to measure|i would|i'd|my approach|the trade.off|the risk|the impact|success looks like|i'd measure|metric|data)\b/;
+      const SPECIFICS  = /\b(\d+%|\d+ (days?|weeks?|months?|users?|points?|hours?)|increased|decreased|reduced|improved|grew|doubled|halved)\b/;
+
+      let totalPts = 0;
+
+      userMsgs.forEach(msg => {
+        const wordCount = msg.trim().split(/\s+/).length;
+        let pts = 0;
+
+        // Depth: reward substantive answers
+        if (wordCount >= 80) pts += 2;
+        else if (wordCount >= 40) pts += 1;
+
+        // Framework usage
+        if (FRAMEWORKS.test(msg)) pts += 2;
+
+        // Structured thinking
+        const structureMatches = (msg.match(new RegExp(STRUCTURE.source, 'g')) || []).length;
+        if (structureMatches >= 3) pts += 2;
+        else if (structureMatches >= 1) pts += 1;
+
+        // Specificity — numbers, outcomes
+        if (SPECIFICS.test(msg)) pts += 1;
+
+        // Cap per answer at 5
+        totalPts += Math.min(pts, 5);
+      });
+
+      // Normalise to max 10 pts across whole conversation
+      const maxPossible = userMsgs.length * 5;
+      const normalised  = maxPossible > 0 ? Math.round((totalPts / maxPossible) * 10) : 2;
+      return Math.max(2, normalised); // floor of 2 for completing
+    }
+
+    async function updateScore(userId, newScore) {
+      sessionStorage.setItem('pathpm_score', newScore);
+      await sb.from('user_role_selection')
+        .update({ final_score: newScore })
+        .eq('user_id', userId);
     }
 
     /* ─── INIT ─── */
