@@ -1236,34 +1236,34 @@ ul { list-style: none; }
 /* ===== DASHBOARD (SCREEN 3.1) ===== */
 .dashboard-page { display: flex; min-height: 100vh; background: #f4f7f5; }
 
-.sidebar { width: 220px; flex-shrink: 0; background: var(--dark); display: flex; flex-direction: column; padding: 24px 0; position: fixed; top: 0; left: 0; bottom: 0; overflow-y: auto; }
-.db-logo { color: #fff; padding: 0 20px; margin-bottom: 20px; font-size: 1rem; }
+.sidebar { width: 220px; flex-shrink: 0; background: var(--light-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 0; position: fixed; top: 0; left: 0; bottom: 0; overflow-y: auto; }
+.db-logo { color: var(--dark); padding: 0 20px; margin-bottom: 20px; font-size: 1rem; }
 
 /* Sidebar profile block */
-.sidebar-profile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 20px 14px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px; }
+.sidebar-profile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 20px 14px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
 .sidebar-profile .sp-avatar { width: 48px; height: 48px; font-size: 1rem; }
-.sidebar-profile .sp-name { color: #fff; font-size: 0.88rem; font-weight: 600; text-align: center; }
-.sidebar-profile .sp-role-badge { background: rgba(0,168,107,0.2); color: #6ee7b7; border: 1px solid rgba(0,168,107,0.3); font-size: 0.68rem; padding: 2px 10px; border-radius: 20px; font-weight: 600; letter-spacing: 0.04em; }
-.sidebar-score-block { margin: 0 16px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px 14px; }
-.sidebar-score-block .sp-score-label { color: rgba(255,255,255,0.45); font-size: 0.65rem; letter-spacing: 0.08em; }
-.sidebar-score-block .sp-score-num { color: #fff; font-size: 1.5rem; }
-.sidebar-score-block .sp-score-sub { color: rgba(255,255,255,0.4); font-size: 0.75rem; }
-.sidebar-score-block .sp-score-bar { background: rgba(255,255,255,0.12); margin-top: 8px; }
+.sidebar-profile .sp-name { color: var(--dark); font-size: 0.88rem; font-weight: 600; text-align: center; }
+.sidebar-profile .sp-role-badge { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; font-size: 0.68rem; padding: 2px 10px; border-radius: 20px; font-weight: 600; letter-spacing: 0.04em; }
+.sidebar-score-block { margin: 0 16px 12px; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.sidebar-score-block .sp-score-label { color: var(--text-muted); font-size: 0.65rem; letter-spacing: 0.08em; }
+.sidebar-score-block .sp-score-num { color: var(--dark); font-size: 1.5rem; }
+.sidebar-score-block .sp-score-sub { color: var(--text-muted); font-size: 0.75rem; }
+.sidebar-score-block .sp-score-bar { background: var(--border); margin-top: 8px; }
 .sidebar-score-block .sp-bar-fill { background: var(--green); }
 
 .sidebar-back { padding: 16px 20px 0; }
-.sidebar-btn-back { color: rgba(255,255,255,0.6); font-size: 0.82rem; font-weight: 500; }
-.sidebar-btn-back:hover { color: #fff; }
-.sidebar-link { display: flex; align-items: center; gap: 10px; padding: 11px 20px; color: rgba(255,255,255,0.55); font-size: 0.85rem; font-weight: 500; transition: all 0.2s; border-left: 3px solid transparent; }
-.sidebar-link:hover { color: #fff; background: rgba(255,255,255,0.06); }
-.sidebar-link.active { color: #fff; border-left-color: var(--green); background: rgba(0,168,107,0.12); }
+.sidebar-btn-back { color: var(--text-muted); font-size: 0.82rem; font-weight: 500; }
+.sidebar-btn-back:hover { color: var(--dark); }
+.sidebar-link { display: flex; align-items: center; gap: 10px; padding: 11px 20px; color: var(--text-muted); font-size: 0.85rem; font-weight: 500; transition: all 0.2s; border-left: 3px solid transparent; }
+.sidebar-link:hover { color: var(--dark); background: rgba(0,168,107,0.06); }
+.sidebar-link.active { color: var(--dark); border-left-color: var(--green); background: rgba(0,168,107,0.1); }
 
-.streak-box { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+.streak-box { padding: 16px 20px; border-top: 1px solid var(--border); }
 .streak-header { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .streak-fire { font-size: 1rem; }
-.streak-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.5); }
+.streak-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; color: var(--text-muted); }
 .streak-dots { display: flex; gap: 5px; }
-.sdot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+.sdot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); }
 .sdot.done { background: var(--green); }
 .sdot.active { background: #fbbf24; }
 
