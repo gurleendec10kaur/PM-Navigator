@@ -117,86 +117,7 @@
           <div class="lp-progress-fill" id="lpProgressFill"></div>
         </div>
 
-        <div class="stages">
-
-          <!-- Stage 1 -->
-          <div class="stage completed" onclick="toggleStage(this)">
-            <div class="stage-header">
-              <span class="stage-check done">✓</span>
-              <div class="stage-info">
-                <strong>Stage 1: Foundational Frameworks</strong>
-                <span class="stage-date">Completed on Oct 12</span>
-              </div>
-              <span class="stage-chevron">›</span>
-            </div>
-          </div>
-
-          <!-- Stage 2 -->
-          <div class="stage completed" onclick="toggleStage(this)">
-            <div class="stage-header">
-              <span class="stage-check done">✓</span>
-              <div class="stage-info">
-                <strong>Stage 2: Technical PM Deep Dive</strong>
-                <span class="stage-date">Completed on Oct 28</span>
-              </div>
-              <span class="stage-chevron">›</span>
-            </div>
-          </div>
-
-          <!-- Stage 3 — ACTIVE -->
-          <div class="stage active-stage open" onclick="toggleStage(this)">
-            <div class="stage-header">
-              <span class="stage-num active-num">03</span>
-              <div class="stage-info">
-                <strong>Stage 3: Product Sense &amp; Strategy</strong>
-              </div>
-              <span class="stage-chevron open-chevron">‹</span>
-            </div>
-            <div class="stage-body">
-              <div class="lesson done-lesson">
-                <span class="lesson-check">✓</span>
-                <div class="lesson-info">
-                  <strong>The Amazon Method: Working Backwards</strong>
-                  <span>Reading · 12 mins · Done</span>
-                </div>
-              </div>
-              <div class="lesson done-lesson">
-                <span class="lesson-check">✓</span>
-                <div class="lesson-info">
-                  <strong>Execution Strategies for Growth PMs</strong>
-                  <span>Video · 45 mins · Done</span>
-                </div>
-              </div>
-              <div class="lesson active-lesson">
-                <span class="lesson-active-dot"></span>
-                <div class="lesson-info">
-                  <strong>Product Sense Diagnostic Quiz</strong>
-                  <span class="active-tag">ACTIVE MODULE · REQUIRED FOR STAGE 4</span>
-                </div>
-                <button class="btn-primary small" onclick="event.stopPropagation(); window.location.href='mcq.html?count=10'">Start Quiz</button>
-              </div>
-              <div class="lesson locked-lesson">
-                <span class="lesson-lock">🔒</span>
-                <div class="lesson-info">
-                  <strong>Build: Strategy Roadmap for 'X'</strong>
-                  <span>Practical Project · Locked</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Stage 4 -->
-          <div class="stage locked-stage" onclick="toggleStage(this)">
-            <div class="stage-header">
-              <span class="lesson-lock">🔒</span>
-              <div class="stage-info">
-                <strong>Stage 4: Analytics &amp; A/B Testing</strong>
-              </div>
-              <span class="stage-chevron">›</span>
-            </div>
-          </div>
-
-        </div>
+        <div class="stages" id="stagesContainer"></div>
 
         <div class="role-footer" style="padding: 24px 0 8px;">
           <a href="conversation.html" class="btn-back">← Back</a>
@@ -302,7 +223,10 @@
     document.getElementById('altRoleBtn').textContent = alt.alt;
     document.getElementById('skillHighlight').textContent = alt.skills;
 
-    // Compute learning progress from DOM
+    // Render role-specific learning path
+    renderLearningPath(role);
+
+    // Compute learning progress from DOM (after render)
     const totalStages     = document.querySelectorAll('.stages .stage').length;
     const completedStages = document.querySelectorAll('.stages .stage.completed').length;
     const activeDone      = document.querySelectorAll('.stages .stage.active-stage .lesson.done-lesson').length;
@@ -315,6 +239,156 @@
     }, 300);
 
     } // end initDashboard()
+
+    // ── Learning path data per role ───────────────────────────────
+    const LEARNING_PATHS = {
+      growth: [
+        { title: 'Foundational Frameworks', status: 'completed', date: 'Completed Oct 12' },
+        { title: 'Growth Loops & Acquisition', status: 'completed', date: 'Completed Oct 28' },
+        {
+          title: 'Product Sense & Strategy', status: 'active',
+          lessons: [
+            { title: 'The Amazon Method: Working Backwards', meta: 'Reading · 12 mins', status: 'done' },
+            { title: 'Execution Strategies for Growth PMs', meta: 'Video · 45 mins', status: 'done' },
+            { title: 'Product Sense Diagnostic Quiz', meta: 'ACTIVE MODULE · REQUIRED FOR STAGE 4', status: 'active' },
+            { title: 'Build: Growth Strategy Roadmap', meta: 'Practical Project · Locked', status: 'locked' },
+          ]
+        },
+        { title: 'Analytics & A/B Testing', status: 'locked' },
+      ],
+      technical: [
+        { title: 'Foundational Frameworks', status: 'completed', date: 'Completed Oct 12' },
+        { title: 'Systems Thinking & APIs', status: 'completed', date: 'Completed Oct 28' },
+        {
+          title: 'Engineering Collaboration & System Design', status: 'active',
+          lessons: [
+            { title: 'How Engineers Think: A PM Primer', meta: 'Reading · 15 mins', status: 'done' },
+            { title: 'REST APIs & Microservices for PMs', meta: 'Video · 40 mins', status: 'done' },
+            { title: 'Technical PM Diagnostic Quiz', meta: 'ACTIVE MODULE · REQUIRED FOR STAGE 4', status: 'active' },
+            { title: 'Build: Technical Spec for a Feature', meta: 'Practical Project · Locked', status: 'locked' },
+          ]
+        },
+        { title: 'Data Infrastructure & Scalability', status: 'locked' },
+      ],
+      platform: [
+        { title: 'Foundational Frameworks', status: 'completed', date: 'Completed Oct 12' },
+        { title: 'Platform Thinking & Developer APIs', status: 'completed', date: 'Completed Oct 28' },
+        {
+          title: 'Developer Experience & Ecosystems', status: 'active',
+          lessons: [
+            { title: 'What Makes a Great Developer Platform', meta: 'Reading · 18 mins', status: 'done' },
+            { title: 'Designing APIs Developers Love', meta: 'Video · 35 mins', status: 'done' },
+            { title: 'Platform PM Diagnostic Quiz', meta: 'ACTIVE MODULE · REQUIRED FOR STAGE 4', status: 'active' },
+            { title: 'Build: Platform Ecosystem Strategy', meta: 'Practical Project · Locked', status: 'locked' },
+          ]
+        },
+        { title: 'Scalability & Infrastructure Strategy', status: 'locked' },
+      ],
+      aiml: [
+        { title: 'Foundational Frameworks', status: 'completed', date: 'Completed Oct 12' },
+        { title: 'ML & Data Fundamentals for PMs', status: 'completed', date: 'Completed Oct 28' },
+        {
+          title: 'LLMs, Generative AI & Product Applications', status: 'active',
+          lessons: [
+            { title: 'How LLMs Work: A Non-Engineer\'s Guide', meta: 'Reading · 20 mins', status: 'done' },
+            { title: 'Building AI Features: Prompts, Evals & Pipelines', meta: 'Video · 50 mins', status: 'done' },
+            { title: 'AI/ML PM Diagnostic Quiz', meta: 'ACTIVE MODULE · REQUIRED FOR STAGE 4', status: 'active' },
+            { title: 'Build: AI Feature PRD with Eval Framework', meta: 'Practical Project · Locked', status: 'locked' },
+          ]
+        },
+        { title: 'AI Ethics, Safety & Roadmapping', status: 'locked' },
+      ],
+      data: [
+        { title: 'Foundational Frameworks', status: 'completed', date: 'Completed Oct 12' },
+        { title: 'SQL, Data Pipelines & Infrastructure', status: 'completed', date: 'Completed Oct 28' },
+        {
+          title: 'Analytics, Metrics & Dashboards', status: 'active',
+          lessons: [
+            { title: 'Defining the Right Metrics for Your Product', meta: 'Reading · 14 mins', status: 'done' },
+            { title: 'Building Dashboards That Drive Decisions', meta: 'Video · 38 mins', status: 'done' },
+            { title: 'Data PM Diagnostic Quiz', meta: 'ACTIVE MODULE · REQUIRED FOR STAGE 4', status: 'active' },
+            { title: 'Build: Metrics Framework for a Product', meta: 'Practical Project · Locked', status: 'locked' },
+          ]
+        },
+        { title: 'Data Product Strategy & Monetisation', status: 'locked' },
+      ],
+      generalist: [
+        { title: 'Foundational Frameworks', status: 'completed', date: 'Completed Oct 12' },
+        { title: 'Stakeholder Management & Communication', status: 'completed', date: 'Completed Oct 28' },
+        {
+          title: 'Product Sense & Strategy', status: 'active',
+          lessons: [
+            { title: 'The Amazon Method: Working Backwards', meta: 'Reading · 12 mins', status: 'done' },
+            { title: 'Prioritisation Frameworks: RICE, MoSCoW & More', meta: 'Video · 35 mins', status: 'done' },
+            { title: 'Product Sense Diagnostic Quiz', meta: 'ACTIVE MODULE · REQUIRED FOR STAGE 4', status: 'active' },
+            { title: 'Build: Full Product Roadmap Exercise', meta: 'Practical Project · Locked', status: 'locked' },
+          ]
+        },
+        { title: 'Roadmapping & Prioritisation Deep Dive', status: 'locked' },
+      ],
+    };
+
+    function renderLearningPath(roleKey) {
+      const path = LEARNING_PATHS[roleKey] || LEARNING_PATHS.generalist;
+      const container = document.getElementById('stagesContainer');
+      container.innerHTML = path.map((stage, i) => {
+        const stageNum = String(i + 1).padStart(2, '0');
+        if (stage.status === 'completed') {
+          return `
+            <div class="stage completed" onclick="toggleStage(this)">
+              <div class="stage-header">
+                <span class="stage-check done">✓</span>
+                <div class="stage-info">
+                  <strong>Stage ${i + 1}: ${stage.title}</strong>
+                  <span class="stage-date">${stage.date || ''}</span>
+                </div>
+                <span class="stage-chevron">›</span>
+              </div>
+            </div>`;
+        }
+        if (stage.status === 'active') {
+          const lessonsHtml = stage.lessons.map(l => {
+            if (l.status === 'done') return `
+              <div class="lesson done-lesson">
+                <span class="lesson-check">✓</span>
+                <div class="lesson-info"><strong>${l.title}</strong><span>${l.meta} · Done</span></div>
+              </div>`;
+            if (l.status === 'active') return `
+              <div class="lesson active-lesson">
+                <span class="lesson-active-dot"></span>
+                <div class="lesson-info">
+                  <strong>${l.title}</strong>
+                  <span class="active-tag">${l.meta}</span>
+                </div>
+                <button class="btn-primary small" onclick="event.stopPropagation(); window.location.href='mcq.html?count=10'">Start Quiz</button>
+              </div>`;
+            return `
+              <div class="lesson locked-lesson">
+                <span class="lesson-lock">🔒</span>
+                <div class="lesson-info"><strong>${l.title}</strong><span>${l.meta}</span></div>
+              </div>`;
+          }).join('');
+          return `
+            <div class="stage active-stage open" onclick="toggleStage(this)">
+              <div class="stage-header">
+                <span class="stage-num active-num">${stageNum}</span>
+                <div class="stage-info"><strong>Stage ${i + 1}: ${stage.title}</strong></div>
+                <span class="stage-chevron open-chevron">‹</span>
+              </div>
+              <div class="stage-body">${lessonsHtml}</div>
+            </div>`;
+        }
+        // locked
+        return `
+          <div class="stage locked-stage" onclick="toggleStage(this)">
+            <div class="stage-header">
+              <span class="lesson-lock">🔒</span>
+              <div class="stage-info"><strong>Stage ${i + 1}: ${stage.title}</strong></div>
+              <span class="stage-chevron">›</span>
+            </div>
+          </div>`;
+      }).join('');
+    }
 
     // Run immediately as fallback (sessionStorage values) in case Supabase is slow
     initDashboard();

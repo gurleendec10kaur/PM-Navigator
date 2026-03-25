@@ -206,6 +206,30 @@
       color: var(--text-muted);
     }
 
+    /* Email verification banner */
+    .verify-banner {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; padding: 14px 32px;
+      background: #fffbeb; border-bottom: 1px solid #fde68a;
+      font-size: 0.85rem; color: #78350f;
+    }
+    .verify-banner.hidden { display: none; }
+    .vb-left { display: flex; align-items: center; gap: 12px; }
+    .vb-icon { font-size: 1.3rem; flex-shrink: 0; }
+    .vb-left strong { display: block; font-weight: 700; margin-bottom: 2px; }
+    .vb-left p { margin: 0; color: #92400e; font-size: 0.82rem; }
+    .vb-resend {
+      flex-shrink: 0; background: none; border: 1px solid #d97706;
+      color: #d97706; font-size: 0.8rem; font-weight: 600;
+      padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: all .15s;
+    }
+    .vb-resend:hover { background: #d97706; color: #fff; }
+
+    /* Disabled Get Started button */
+    .btn-primary:disabled {
+      opacity: 0.45; cursor: not-allowed; pointer-events: none;
+    }
+
     @media (max-width: 700px) {
       .welcome-nav { padding: 16px 20px; }
       .welcome-heading { font-size: 1.6rem; }
@@ -226,6 +250,18 @@
       <button class="signout-btn" onclick="signOut()">Sign out</button>
     </div>
   </nav>
+
+  <!-- EMAIL VERIFICATION BANNER -->
+  <div class="verify-banner hidden" id="verifyBanner">
+    <div class="vb-left">
+      <span class="vb-icon">📬</span>
+      <div>
+        <strong>Verify your email to get started</strong>
+        <p>We sent a confirmation link to <span id="verifyEmail"></span>. Click it to activate your account.</p>
+      </div>
+    </div>
+    <button class="vb-resend" onclick="resendVerification()">Resend email</button>
+  </div>
 
   <!-- BODY -->
   <div class="welcome-body">
@@ -331,7 +367,30 @@
       document.getElementById('nav-name').textContent = firstName;
       document.getElementById('welcome-heading').textContent =
         `Hey ${firstName}, let's figure out exactly where you stand as a PM.`;
+
+      // Email verification check
+      if (!user.email_confirmed_at) {
+        document.getElementById('verifyBanner').classList.remove('hidden');
+        document.getElementById('verifyEmail').textContent = user.email;
+
+        // Disable Get Started button
+        const ctaBtn = document.querySelector('.welcome-cta .btn-primary');
+        ctaBtn.disabled = true;
+        ctaBtn.textContent = 'Verify your email to get started';
+      }
     })();
+
+    async function resendVerification() {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return;
+      const btn = document.querySelector('.vb-resend');
+      btn.textContent = 'Sending…';
+      btn.disabled = true;
+      const { error } = await sb.auth.resend({ type: 'signup', email: user.email });
+      btn.textContent = error ? 'Try again' : 'Sent!';
+      btn.disabled = false;
+      setTimeout(() => { btn.textContent = 'Resend email'; }, 3000);
+    }
   </script>
 
 </body>
