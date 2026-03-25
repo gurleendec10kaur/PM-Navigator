@@ -655,7 +655,7 @@ ul { list-style: none; }
   width: 260px; flex-shrink: 0;
   border-right: 1px solid var(--border);
   padding: 28px 24px;
-  background: #fff;
+  background: var(--light-bg);
 }
 .found-label { font-size: 1rem; font-weight: 700; color: var(--dark); margin-bottom: 16px; }
 .profile-card {
@@ -996,7 +996,7 @@ ul { list-style: none; }
 }
 .side-panel {
   width: 240px; flex-shrink: 0;
-  background: #fff;
+  background: var(--light-bg);
   border-right: 1px solid var(--border);
   padding: 24px 20px;
   overflow-y: auto;
