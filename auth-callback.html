@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Signing in…</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <style>
+    body { font-family: sans-serif; display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; margin: 0; background: #f9fafb; color: #6b7280; flex-direction: column; gap: 12px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top-color: #00a86b;
+      border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="spinner"></div>
+  <p>Completing sign in…</p>
+  <script>
+    (async () => {
+      // Give Supabase a moment to process the hash/code from Google
+      await new Promise(r => setTimeout(r, 800));
+      const { data: { session } } = await sb.auth.getSession();
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage('oauth-complete', '*');
+        window.close();
+      } else {
+        // Fallback: no opener, navigate directly
+        window.location.href = session ? 'welcome.html' : 'auth.html';
+      }
+    })();
+  </script>
+</body>
+</html>
