@@ -362,23 +362,30 @@
         if (SKIP.test(title) || SKIP.test(company)) return;
         if (CONTACT.test(title)) return;
 
-        // Get bullets: split by 3+ spaces, then merge wrapped lines
+        // Full range — isJobHeaderUp filter below handles any leaked next-entry metadata
         const after    = workSection.slice(d.end, nextStart);
         const rawSegs  = after
           .split(/\s{3,}/)
           .map(s => s.replace(/\s+/g, ' ').trim())
           .filter(s => s.length > 8 && /[a-z]{3,}/.test(s));
 
-        const CONT_START = /^(?:[a-z]|and\b|or\b|to\b|in\b|on\b|at\b|with\b|for\b|by\b|of\b|the\b|a\b|an\b|that\b|which\b|who\b|as\b|while\b|through\b|across\b|including\b|such\b)/;
+        const ACTION_VERB_UP = /^(?:led|built|managed|created|designed|analyzed|defined|launched|drove|scaled|shipped|ran|owned|partnered|aligned|facilitated|collaborated|championed|spearheaded|developed|implemented|architected|established|identified|delivered|coordinated|optimized|streamlined|increased|reduced|improved|supported|executed|handled|conducted|performed|prepared|reported|presented|communicated|trained|mentored|monitored|reviewed|evaluated|assessed|recommended|proposed|initiated|planned|organized|directed|supervised|oversaw|ensured|maintained|deployed|released|tested|validated|documented|researched|investigated|synthesized|forecasted|negotiated|secured|acquired|generated|achieved|accomplished|exceeded|met|produced|completed|hired|recruited|grew|expanded|rolled|piloted|iterated|refined|enhanced|upgraded|migrated|transformed|redesigned|integrated|automated|simplified|influenced|contributed|provided|enabled|leveraged|utilized|worked|helped|assisted|served|functioned|operated|advised|formulated|briefed|liaised|drafted|mapped|shaped|closed|resolved|diagnosed|structured|pitched|tracked|benchmarked|calibrated|governed|audited|translated|prioritized|modelled|presented|owned)\b/i;
+        const FUNC_WORDS_UP  = /\b(?:and|the|to|in|with|for|by|of|a|an|that|which|was|were|has|have|been|is|are|on|at|from|its|our|their)\b/i;
+        const isJobHeaderUp  = s => s.length < 40 && /^[A-Z]/.test(s) && !FUNC_WORDS_UP.test(s) && !ACTION_VERB_UP.test(s);
+
         const mergedSegs = [];
         for (const seg of rawSegs) {
-          if (mergedSegs.length > 0 && CONT_START.test(seg)) {
+          if (isJobHeaderUp(seg)) continue;
+          const prevExists   = mergedSegs.length > 0;
+          const prevEndsOpen = prevExists && !/[.!?]$/.test(mergedSegs[mergedSegs.length - 1]);
+          const startsNew    = ACTION_VERB_UP.test(seg);
+          if (prevExists && (!startsNew || (prevEndsOpen && seg.length < 80))) {
             mergedSegs[mergedSegs.length - 1] += ' ' + seg;
           } else {
             mergedSegs.push(seg);
           }
         }
-        const bullets = mergedSegs.filter(s => s.length > 15 && s.length < 500).slice(0, 6);
+        const bullets = mergedSegs.filter(s => s.length > 15 && s.length < 600).slice(0, 6);
 
         exps.push({ title: title.slice(0, 80), company: company.slice(0, 60), dates: d.dates, bullets });
       });

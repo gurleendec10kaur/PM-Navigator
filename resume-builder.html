@@ -267,8 +267,11 @@
       document.getElementById('sidebarScoreNum').textContent  = score;
       setTimeout(() => { document.getElementById('sidebarBarFill').style.width = score + '%'; }, 300);
 
-      // Always re-parse from Supabase if experiences seem incomplete (≤1 found)
-      if (!resumeData || !resumeData.experiences || resumeData.experiences.length <= 1) {
+      // Re-parse if data is missing, incomplete, or any experience has zero bullets
+      const needsReparse = !resumeData || !resumeData.experiences ||
+        resumeData.experiences.length <= 1 ||
+        resumeData.experiences.some(e => !e.bullets || e.bullets.length === 0);
+      if (needsReparse) {
         await loadResumeFromSupabase();
       }
       updateResumeSourceBanner();
@@ -363,12 +366,35 @@
         const before   = workSection.slice(Math.max(0, d.start - 300), d.start);
         const segments = before.split(/\s{3,}/).map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
 
-        // Walk backwards from the date — collect segments until we hit a long one (a bullet)
-        // Title / company / city are all < 70 chars; bullets are typically > 70 chars
+        // Walk backwards — stop when segment is > 70 chars OR starts with lowercase
+        // (lowercase = bullet continuation, not a title/company/city)
         const titleSegs = [];
+        let stoppedAtIdx = -1;
         for (let k = segments.length - 1; k >= 0; k--) {
-          if (segments[k].length > 70) break;
-          titleSegs.unshift(segments[k]);
+          const seg = segments[k];
+          if (seg.length > 70 || /^[a-z]/.test(seg)) { stoppedAtIdx = k; break; }
+          titleSegs.unshift(seg);
+        }
+
+        // The stopped segment often has the job title concatenated at its end
+        // e.g. "...ensure alignment with business goals Management Consultant"
+        // Extract it and prepend to titleSegs
+        if (stoppedAtIdx >= 0) {
+          const sc = collapseLetterSpacing(segments[stoppedAtIdx].replace(/\s+/g, ' '));
+          const sfx = sc.match(/\s+((?:Senior\s+|Junior\s+|Lead\s+|Principal\s+|Staff\s+)?(?:Management\s+|Program\s+|Project\s+|Product\s+|Technical\s+|Business\s+|Software\s+|Data\s+)?(?:Consultant|Manager|Analyst|Developer|Engineer|Director|Lead|Head|Intern|Specialist|Coordinator|Officer|Architect|Designer|Executive|Researcher|Associate)(?:\s+[A-Z][a-z]+)?)\s*$/);
+          if (sfx) titleSegs.unshift(sfx[1].trim());
+        }
+
+        // Also look 1-2 segments before the stop for title-prefix words
+        // e.g. "Program Management" sitting just before the Swiggy entry's "Intern"
+        if (stoppedAtIdx > 0 && titleSegs.length < 4) {
+          for (let k = stoppedAtIdx - 1; k >= Math.max(0, stoppedAtIdx - 2); k--) {
+            const seg = collapseLetterSpacing(segments[k].replace(/\s+/g, ' ').trim());
+            if (seg.length < 40 && /^[A-Z]/.test(seg) &&
+                /\b(?:Senior|Junior|Lead|Program|Project|Product|Technical|Business|Management|Software|Data|Principal|Staff|VP|Head|Chief|Associate)\b/i.test(seg)) {
+              titleSegs.unshift(seg);
+            }
+          }
         }
 
         const last   = titleSegs[titleSegs.length - 1] || '';
@@ -400,25 +426,26 @@
         if (SKIP.test(title) || SKIP.test(company)) return;
         if (CONTACT.test(title)) return;
 
-        // Get bullets: text after date, split by 3+ spaces (each segment = one original line)
+        // Full range — isJobHeader filter below handles any leaked next-entry metadata
         const after    = workSection.slice(d.end, nextStart);
         const rawSegs  = after
           .split(/\s{3,}/)
-          .map(s => s.replace(/\s+/g, ' ').trim())
-          .filter(s => s.length > 8 && /[a-z]{3,}/.test(s));
+          .map(s => collapseLetterSpacing(s.replace(/\s+/g, ' ').trim()))
+          .filter(s => s.length > 5 && /[a-zA-Z]{3,}/.test(s));
 
         // Resume bullets always START with a past-tense action verb.
         // Any segment that does NOT start with one is a wrapped continuation of the previous bullet.
-        const ACTION_VERB = /^(?:led|built|managed|created|designed|analyzed|defined|launched|drove|scaled|shipped|ran|owned|partnered|aligned|facilitated|collaborated|championed|spearheaded|developed|implemented|architected|established|identified|delivered|coordinated|optimized|streamlined|increased|reduced|improved|supported|executed|handled|conducted|performed|prepared|reported|presented|communicated|trained|mentored|monitored|reviewed|evaluated|assessed|recommended|proposed|initiated|planned|organized|directed|supervised|oversaw|ensured|maintained|deployed|released|tested|validated|documented|researched|investigated|synthesized|forecasted|negotiated|secured|acquired|generated|achieved|accomplished|exceeded|met|produced|completed|hired|recruited|grew|expanded|rolled|piloted|iterated|refined|enhanced|upgraded|migrated|transformed|redesigned|integrated|automated|simplified|influenced|contributed|provided|enabled|leveraged|utilized|worked|helped|assisted|served|functioned|operated)\b/i;
+        const ACTION_VERB = /^(?:led|built|managed|created|designed|analyzed|defined|launched|drove|scaled|shipped|ran|owned|partnered|aligned|facilitated|collaborated|championed|spearheaded|developed|implemented|architected|established|identified|delivered|coordinated|optimized|streamlined|increased|reduced|improved|supported|executed|handled|conducted|performed|prepared|reported|presented|communicated|trained|mentored|monitored|reviewed|evaluated|assessed|recommended|proposed|initiated|planned|organized|directed|supervised|oversaw|ensured|maintained|deployed|released|tested|validated|documented|researched|investigated|synthesized|forecasted|negotiated|secured|acquired|generated|achieved|accomplished|exceeded|met|produced|completed|hired|recruited|grew|expanded|rolled|piloted|iterated|refined|enhanced|upgraded|migrated|transformed|redesigned|integrated|automated|simplified|influenced|contributed|provided|enabled|leveraged|utilized|worked|helped|assisted|served|functioned|operated|advised|formulated|briefed|liaised|drafted|mapped|shaped|closed|resolved|diagnosed|structured|pitched|tracked|benchmarked|calibrated|governed|audited|translated|prioritized|modelled|presented|owned)\b/i;
+
+        // Short proper-noun segments with no function words are job headers leaking from the next entry — skip them
+        const FUNC_WORDS = /\b(?:and|the|to|in|with|for|by|of|a|an|that|which|was|were|has|have|been|is|are|on|at|from|its|our|their)\b/i;
+        const isJobHeader = s => s.length < 40 && /^[A-Z]/.test(s) && !FUNC_WORDS.test(s) && !ACTION_VERB.test(s);
 
         const merged = [];
         for (const seg of rawSegs) {
-          const prevExists = merged.length > 0;
-          const prevEndsOpen = prevExists && !/[.!?]$/.test(merged[merged.length - 1]);
-          const startsNew = ACTION_VERB.test(seg);
-          // Merge if: starts lowercase, starts with a continuation-type capital word/number,
-          // or previous segment is clearly incomplete (no terminal punctuation) and this doesn't start a new action
-          if (prevExists && (!startsNew || prevEndsOpen && seg.length < 80)) {
+          if (isJobHeader(seg)) continue; // skip leaked title/company/city segments
+          // Only merge if the segment starts with lowercase — it's a continuation of the prev bullet
+          if (merged.length > 0 && /^[a-z]/.test(seg)) {
             merged[merged.length - 1] += ' ' + seg;
           } else {
             merged.push(seg);
@@ -480,7 +507,12 @@
       banner.className = 'rb-source-banner loading';
       banner.textContent = '⏳ Loading your resume…';
       try {
-        const sbUser = await getCurrentUser();
+        // Try to get user — fall back to session if tracking prevention blocks storage
+        let sbUser = await getCurrentUser();
+        if (!sbUser) {
+          const { data: { session } } = await sb.auth.getSession();
+          sbUser = session?.user || null;
+        }
         if (!sbUser) return;
 
         const { data: nameRow } = await sb.from('profiles').select('name').eq('id', sbUser.id).maybeSingle();
@@ -583,18 +615,45 @@
         user:        /\buser research\b|\buser experience\b|\bux\b|\bcustomer\b|\bfeedback\b/.test(jdLower),
       };
 
-      // Theme-specific strong action verbs for replacing weak openers
+      // Theme-specific strong action verbs
       const THEME_VERBS = {
-        data:        ['Analyzed', 'Leveraged', 'Measured', 'Tracked', 'Synthesized'],
-        stakeholder: ['Aligned', 'Partnered with', 'Facilitated', 'Coordinated', 'Collaborated with'],
-        agile:       ['Facilitated', 'Streamlined', 'Iterated on', 'Ran', 'Prioritized'],
-        growth:      ['Scaled', 'Optimized', 'Drove', 'Boosted', 'Grew'],
-        product:     ['Defined', 'Spearheaded', 'Owned', 'Shaped', 'Led'],
-        technical:   ['Architected', 'Implemented', 'Built', 'Shipped', 'Integrated'],
-        user:        ['Championed', 'Incorporated', 'Synthesized', 'Validated', 'Researched'],
+        data:        ['Leveraged', 'Synthesized', 'Analyzed', 'Tracked', 'Measured'],
+        stakeholder: ['Aligned', 'Partnered with', 'Facilitated', 'Coordinated', 'Influenced'],
+        agile:       ['Spearheaded', 'Streamlined', 'Facilitated', 'Prioritized', 'Drove'],
+        growth:      ['Scaled', 'Optimized', 'Drove', 'Accelerated', 'Boosted'],
+        product:     ['Owned', 'Defined', 'Spearheaded', 'Championed', 'Shaped'],
+        technical:   ['Architected', 'Implemented', 'Built', 'Integrated', 'Deployed'],
+        user:        ['Championed', 'Validated', 'Synthesized', 'Researched', 'Incorporated'],
       };
 
-      // Bullet content → JD theme matching
+      // JD theme → outcome phrase to append when bullet has no result clause
+      const OUTCOME_PHRASES = {
+        data:        ['driving data-informed decisions', 'enabling measurable impact tracking', 'surfacing actionable insights for leadership'],
+        stakeholder: ['ensuring cross-functional alignment', 'driving leadership buy-in', 'aligning stakeholders on priorities'],
+        agile:       ['reducing time-to-market', 'accelerating delivery velocity', 'improving sprint predictability'],
+        growth:      ['contributing to measurable business growth', 'improving user acquisition and retention', 'scaling key growth levers'],
+        product:     ['delivering high-impact product outcomes', 'aligning execution with product strategy', 'improving customer value delivery'],
+        technical:   ['improving platform scalability', 'reducing technical debt', 'enabling reliable product delivery'],
+        user:        ['improving end-user satisfaction', 'grounding decisions in user research', 'delivering user-centric product experiences'],
+      };
+
+      // Generic term → JD-specific substitution (only applied when JD contains the trigger)
+      const TERM_SWAPS = [
+        [/\bteam alignment\b/gi,         /stakeholder/i,              'stakeholder alignment'],
+        [/\bcross.team\b/gi,             /cross.functional/i,         'cross-functional'],
+        [/\bthe team\b/gi,               /cross.functional/i,         'cross-functional teams'],
+        [/\bdata\b(?! driven)/gi,        /data.driven/i,              'data-driven insights'],
+        [/\bnumbers\b|\bfigures\b/gi,    /metrics|kpi/i,              'metrics'],
+        [/\bgoals\b/gi,                  /kpi|okr/i,                  'KPIs and business goals'],
+        [/\bmeeting\b/gi,               /sprint|scrum|standup/i,      'sprint ceremony'],
+        [/\bplanning session\b/gi,       /roadmap/i,                  'roadmap planning session'],
+        [/\bfeedback\b/gi,              /user research|ux/i,          'user research feedback'],
+        [/\bprocess\b/gi,               /agile|scrum/i,               'agile process'],
+        [/\bimprovement\b/gi,           /optim/i,                     'optimization'],
+        [/\bwork\b(?!ing|ed|s)\b/gi,    /deliver|ship|launch/i,       'deliverables'],
+      ];
+
+      // Bullet content → theme detection
       const BULLET_THEME_HINTS = [
         [/analy|report|metric|dashboard|data|insight|kpi/i,             'data'],
         [/stakeholder|partner|client|executive|leadership|align/i,      'stakeholder'],
@@ -605,56 +664,61 @@
         [/user research|ux|usability|interview|feedback|persona/i,      'user'],
       ];
 
-      // Weak verb patterns to replace
       const WEAK_VERBS = [
-        /^responsible for\s+/i,
-        /^worked on\s+/i,
-        /^helped (?:with\s+)?/i,
-        /^assisted (?:with\s+)?/i,
-        /^was involved in\s+/i,
-        /^was part of\s+/i,
-        /^did\s+/i,
-        /^handled\s+/i,
-        /^participated in\s+/i,
+        /^responsible for\s+/i, /^worked on\s+/i, /^helped (?:with\s+)?/i,
+        /^assisted (?:with\s+)?/i, /^was involved in\s+/i, /^was part of\s+/i,
+        /^did\s+/i, /^handled\s+/i, /^participated in\s+/i,
       ];
 
-      function pickVerb(theme) {
-        const pool = THEME_VERBS[theme] || THEME_VERBS.product;
-        return pool[Math.floor(Math.random() * Math.min(3, pool.length))];
-      }
+      const HAS_OUTCOME = /\b(?:to |resulting in|enabling|improving|reducing|increasing|delivering|driving|achieving|ensuring|contributing|accelerating|boosting|scaling)\b/i;
+
+      function pickItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
       return bullets.map(b => {
         if (!b || b.length < 5) return b;
         let t = b.trim();
-
-        // Fix capitalisation
         t = t.charAt(0).toUpperCase() + t.slice(1);
 
-        // Detect which JD theme this bullet is closest to
+        // 1 — Detect JD theme for this bullet
         let theme = 'product';
         for (const [pattern, t_] of BULLET_THEME_HINTS) {
           if (jdHas[t_] && pattern.test(t)) { theme = t_; break; }
         }
 
-        // Replace weak opener with a strong, JD-aligned action verb
+        // 2 — Substitute generic terms with JD-specific language (one swap per bullet)
+        for (const [bulletPat, jdPat, replacement] of TERM_SWAPS) {
+          if (jdPat.test(jdLower) && bulletPat.test(t)) {
+            t = t.replace(bulletPat, replacement);
+            break;
+          }
+        }
+
+        // 3 — Replace weak opener with a strong JD-aligned verb
         let replaced = false;
         for (const pattern of WEAK_VERBS) {
           if (pattern.test(t)) {
             const rest = t.replace(pattern, '');
-            // Keep rest as-is (original words), just prepend a strong verb
-            t = pickVerb(theme) + ' ' + rest.charAt(0).toLowerCase() + rest.slice(1);
+            t = pickItem(THEME_VERBS[theme]) + ' ' + rest.charAt(0).toLowerCase() + rest.slice(1);
             replaced = true;
             break;
           }
         }
 
-        // If bullet doesn't start with a past-tense action verb, prefix a fitting one
-        if (!replaced && !/^[A-Z][a-z]+(ed|d)\b|^(?:Led|Built|Managed|Created|Designed|Analyzed|Defined|Launched|Drove|Scaled|Shipped|Ran|Owned|Partnered|Aligned|Facilitated|Collaborated|Championed|Spearheaded|Developed|Implemented|Architected|Established|Identified|Delivered|Coordinated|Optimized|Streamlined|Increased|Reduced|Improved)\b/i.test(t)) {
-          t = pickVerb(theme) + ' ' + t.charAt(0).toLowerCase() + t.slice(1);
+        // 4 — If no strong action verb at start, prefix one
+        if (!replaced && !/^[A-Z][a-z]+(ed|d)\b|^(?:Led|Built|Managed|Created|Designed|Analyzed|Defined|Launched|Drove|Scaled|Shipped|Ran|Owned|Partnered|Aligned|Facilitated|Collaborated|Championed|Spearheaded|Developed|Implemented|Architected|Established|Identified|Delivered|Coordinated|Optimized|Streamlined|Increased|Reduced|Improved|Advised|Formulated|Mapped|Researched|Resolved|Deployed|Integrated|Negotiated)\b/i.test(t)) {
+          t = pickItem(THEME_VERBS[theme]) + ' ' + t.charAt(0).toLowerCase() + t.slice(1);
         }
 
-        // Ensure ends with a period
+        // 5 — Ensure ends with period
         if (!/[.!?]$/.test(t)) t += '.';
+
+        // 6 — Append a JD-relevant outcome phrase if the bullet has no result clause
+        //     and the JD emphasises this theme (adds impact framing without fabricating work)
+        if (!HAS_OUTCOME.test(t) && jdHas[theme] && OUTCOME_PHRASES[theme] && t.length < 180) {
+          const outcome = pickItem(OUTCOME_PHRASES[theme]);
+          t = t.replace(/\.$/, '') + ', ' + outcome + '.';
+        }
+
         return t;
       });
     }
