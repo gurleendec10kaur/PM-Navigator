@@ -125,6 +125,20 @@
 
         <div class="stages" id="stagesContainer"></div>
 
+        <!-- ALL-COMPLETE BANNER (hidden until all 4 stages done) -->
+        <div id="lpCompleteBanner" style="display:none; margin-top:20px; background:linear-gradient(135deg,#ecfdf5,#d1fae5); border:1px solid #6ee7b7; border-radius:14px; padding:20px 24px;">
+          <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">
+            <div style="font-size:2rem;line-height:1;">🎉</div>
+            <div style="flex:1;">
+              <strong style="font-size:1rem;color:#065f46;display:block;margin-bottom:4px;">Learning Path Complete!</strong>
+              <p style="font-size:0.85rem;color:#047857;margin:0 0 14px;">You've completed all 4 stages. Your readiness score has been updated — you're now ready to tackle PM interviews head-on.</p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn-primary small" onclick="window.location.href='mock-interviews.html'">Start Mock Interviews →</button>
+                <button class="btn-outline small" onclick="window.location.href='resume-builder.html'">Polish your Resume →</button>
+              </div>
+            </div>
+          </div>
+        </div>
 
       </div>
 
@@ -202,16 +216,7 @@
     }, 300);
 
     // Readiness snapshot
-    const SCORE_BANDS = [
-      { max: 49,  band: 'Early stage',          msg: 'Your background has real potential, but foundational PM knowledge is still the missing piece. Start with the learning path — the concepts will unlock everything else and your score will move quickly.' },
-      { max: 65,  band: 'Building your base',   msg: 'Solid instincts and transferable skills. A few core PM areas still need work before you\'re interview-ready. Targeted learning will close the gap fast — you\'re closer than you think.' },
-      { max: 79,  band: 'Nearly interview-ready', msg: 'Strong foundation — you could start applying selectively right now. Use mock interviews to sharpen how you communicate your thinking under pressure, and plug the remaining skill gaps.' },
-      { max: 100, band: 'PM-ready',             msg: 'Your skills and experience align well with PM roles. Focus on polishing your resume, practising your story, and applying. The hard work is done — now it\'s about execution.' },
-    ];
-    const band = SCORE_BANDS.find(b => score <= b.max) || SCORE_BANDS[SCORE_BANDS.length - 1];
-    document.getElementById('rsScore').textContent   = score;
-    document.getElementById('rsBand').textContent    = band.band;
-    document.getElementById('rsMessage').textContent = band.msg;
+    updateScoreDisplay();
 
     const missing = (JSON.parse(sessionStorage.getItem('pathpm_skill_gap') || '{}')).missing || [];
     if (missing.length > 0) {
@@ -230,16 +235,7 @@
     renderLearningPath(role);
 
     // Compute learning progress from DOM (after render)
-    const totalStages     = document.querySelectorAll('.stages .stage').length;
-    const completedStages = document.querySelectorAll('.stages .stage.completed').length;
-    const activeDone      = document.querySelectorAll('.stages .stage.active-stage .lesson.done-lesson').length;
-    const activeTotal     = document.querySelectorAll('.stages .stage.active-stage .lesson').length;
-    const activePartial   = activeTotal > 0 ? activeDone / activeTotal : 0;
-    const progressPct     = totalStages > 0 ? Math.round(((completedStages + activePartial) / totalStages) * 100) : 0;
-    document.getElementById('lpProgressText').textContent = progressPct + '% OVERALL PROGRESS';
-    setTimeout(() => {
-      document.getElementById('lpProgressFill').style.width = progressPct + '%';
-    }, 300);
+    updateProgressBar();
 
     // Scroll to learning path if returning from quiz
     if (new URLSearchParams(window.location.search).get('scroll') === 'learning') {
@@ -265,7 +261,11 @@
             { title: 'Build: Growth Strategy Roadmap', meta: 'Practical Project · Locked', status: 'locked' },
           ]
         },
-        { title: 'Analytics & A/B Testing', status: 'locked' },
+        { title: 'Analytics & A/B Testing', status: 'locked', lessons: [
+          { title: 'A/B Testing Fundamentals for PMs', meta: 'Reading · 15 mins', status: 'active' },
+          { title: 'Statistical Significance & Experiment Design', meta: 'Video · 40 mins', status: 'locked' },
+          { title: 'Growth Analytics Final Challenge', meta: 'FINAL MODULE · REQUIRED TO COMPLETE', status: 'locked' },
+        ]},
       ],
       technical: [
         { title: 'Foundational Frameworks', status: 'completed', date: 'Completed Oct 12' },
@@ -279,7 +279,11 @@
             { title: 'Build: Technical Spec for a Feature', meta: 'Practical Project · Locked', status: 'locked' },
           ]
         },
-        { title: 'Data Infrastructure & Scalability', status: 'locked' },
+        { title: 'Data Infrastructure & Scalability', status: 'locked', lessons: [
+          { title: 'Data Pipelines & Storage for PMs', meta: 'Reading · 18 mins', status: 'active' },
+          { title: 'Scalability Trade-offs & System Design', meta: 'Video · 45 mins', status: 'locked' },
+          { title: 'Technical PM Final Challenge', meta: 'FINAL MODULE · REQUIRED TO COMPLETE', status: 'locked' },
+        ]},
       ],
       platform: [
         { title: 'Foundational Frameworks', status: 'completed', date: 'Completed Oct 12' },
@@ -293,7 +297,11 @@
             { title: 'Build: Platform Ecosystem Strategy', meta: 'Practical Project · Locked', status: 'locked' },
           ]
         },
-        { title: 'Scalability & Infrastructure Strategy', status: 'locked' },
+        { title: 'Scalability & Infrastructure Strategy', status: 'locked', lessons: [
+          { title: 'Platform Scaling Patterns & Trade-offs', meta: 'Reading · 16 mins', status: 'active' },
+          { title: 'Infrastructure Strategy for Platform PMs', meta: 'Video · 38 mins', status: 'locked' },
+          { title: 'Platform PM Final Challenge', meta: 'FINAL MODULE · REQUIRED TO COMPLETE', status: 'locked' },
+        ]},
       ],
       aiml: [
         { title: 'Foundational Frameworks', status: 'completed', date: 'Completed Oct 12' },
@@ -307,7 +315,11 @@
             { title: 'Build: AI Feature PRD with Eval Framework', meta: 'Practical Project · Locked', status: 'locked' },
           ]
         },
-        { title: 'AI Ethics, Safety & Roadmapping', status: 'locked' },
+        { title: 'AI Ethics, Safety & Roadmapping', status: 'locked', lessons: [
+          { title: 'Responsible AI: Bias, Safety & Governance', meta: 'Reading · 20 mins', status: 'active' },
+          { title: 'AI Product Roadmapping & OKRs', meta: 'Video · 42 mins', status: 'locked' },
+          { title: 'AI/ML PM Final Challenge', meta: 'FINAL MODULE · REQUIRED TO COMPLETE', status: 'locked' },
+        ]},
       ],
       data: [
         { title: 'Foundational Frameworks', status: 'completed', date: 'Completed Oct 12' },
@@ -321,7 +333,11 @@
             { title: 'Build: Metrics Framework for a Product', meta: 'Practical Project · Locked', status: 'locked' },
           ]
         },
-        { title: 'Data Product Strategy & Monetisation', status: 'locked' },
+        { title: 'Data Product Strategy & Monetisation', status: 'locked', lessons: [
+          { title: 'Building Data Products Users Actually Need', meta: 'Reading · 14 mins', status: 'active' },
+          { title: 'Monetisation Models for Data Products', meta: 'Video · 36 mins', status: 'locked' },
+          { title: 'Data PM Final Challenge', meta: 'FINAL MODULE · REQUIRED TO COMPLETE', status: 'locked' },
+        ]},
       ],
       generalist: [
         { title: 'Foundational Frameworks', status: 'completed', date: 'Completed Oct 12' },
@@ -335,17 +351,37 @@
             { title: 'Build: Full Product Roadmap Exercise', meta: 'Practical Project · Locked', status: 'locked' },
           ]
         },
-        { title: 'Roadmapping & Prioritisation Deep Dive', status: 'locked' },
+        { title: 'Roadmapping & Prioritisation Deep Dive', status: 'locked', lessons: [
+          { title: 'Advanced Roadmapping: Themes vs Features', meta: 'Reading · 16 mins', status: 'active' },
+          { title: 'Prioritisation Under Uncertainty', meta: 'Video · 40 mins', status: 'locked' },
+          { title: 'Generalist PM Final Challenge', meta: 'FINAL MODULE · REQUIRED TO COMPLETE', status: 'locked' },
+        ]},
       ],
     };
 
     function renderLearningPath(roleKey) {
-      const path = LEARNING_PATHS[roleKey] || LEARNING_PATHS.generalist;
-      const quizScore = sessionStorage.getItem(`pathpm_quiz_done_${roleKey}`);
-      const quizDone  = quizScore !== null;
-      const container = document.getElementById('stagesContainer');
-      container.innerHTML = path.map((stage, i) => {
+      const path       = LEARNING_PATHS[roleKey] || LEARNING_PATHS.generalist;
+      const quizDone   = sessionStorage.getItem(`pathpm_quiz_done_${roleKey}`) !== null;
+      const stage4Done = sessionStorage.getItem(`pathpm_stage4_done_${roleKey}`) !== null;
+      const container  = document.getElementById('stagesContainer');
+
+      // Derive effective status for each stage
+      const effectivePath = path.map((stage, i) => {
+        if (i < 2)  return { ...stage, status: 'completed', date: stage.date || 'Completed' };
+        if (i === 2) return quizDone
+          ? { ...stage, status: 'completed', date: 'Completed' }
+          : { ...stage, status: 'active' };
+        if (i === 3) {
+          if (stage4Done) return { ...stage, status: 'completed', date: 'Completed' };
+          if (quizDone)   return { ...stage, status: 'active' };
+          return { ...stage, status: 'locked' };
+        }
+        return stage;
+      });
+
+      container.innerHTML = effectivePath.map((stage, i) => {
         const stageNum = String(i + 1).padStart(2, '0');
+
         if (stage.status === 'completed') {
           return `
             <div class="stage completed" onclick="toggleStage(this)">
@@ -359,29 +395,24 @@
               </div>
             </div>`;
         }
-        if (stage.status === 'active') {
-          const lessonsHtml = stage.lessons.map((l, li) => {
-            // If quiz was completed, mark quiz lesson done and unlock next lesson
-            const effectiveStatus = quizDone
-              ? (l.status === 'active' ? 'done'
-                : l.status === 'locked' && li === stage.lessons.findIndex(x => x.status === 'locked') ? 'active'
-                : l.status)
-              : l.status;
 
-            if (effectiveStatus === 'done') return `
+        if (stage.status === 'active') {
+          const isStage4 = i === 3;
+          const lessonsHtml = (stage.lessons || []).map((l) => {
+            if (l.status === 'done') return `
               <div class="lesson done-lesson">
                 <span class="lesson-check">✓</span>
                 <div class="lesson-info"><strong>${l.title}</strong><span>${l.meta} · Done</span></div>
               </div>`;
-            if (effectiveStatus === 'active') return `
+            if (l.status === 'active') return `
               <div class="lesson active-lesson">
                 <span class="lesson-active-dot"></span>
                 <div class="lesson-info">
                   <strong>${l.title}</strong>
-                  <span class="active-tag">${l.status === 'locked' ? 'ACTIVE MODULE · UNLOCKED' : l.meta}</span>
+                  <span class="active-tag">${l.meta}</span>
                 </div>
-                ${l.status === 'locked'
-                  ? `<button class="btn-primary small" onclick="event.stopPropagation();">Start Project</button>`
+                ${isStage4
+                  ? `<button class="btn-primary small" onclick="event.stopPropagation(); completeStage4('${roleKey}')">Complete Stage</button>`
                   : `<button class="btn-primary small" onclick="event.stopPropagation(); window.location.href='stage-quiz.html?role=${roleKey}'">Start Quiz</button>`
                 }
               </div>`;
@@ -401,9 +432,10 @@
               <div class="stage-body">${lessonsHtml}</div>
             </div>`;
         }
-        // locked
+
+        // locked — show tooltip on click
         return `
-          <div class="stage locked-stage" onclick="toggleStage(this)">
+          <div class="stage locked-stage" onclick="showLockedMsg(${i + 1})">
             <div class="stage-header">
               <span class="lesson-lock">🔒</span>
               <div class="stage-info"><strong>Stage ${i + 1}: ${stage.title}</strong></div>
@@ -411,6 +443,70 @@
             </div>
           </div>`;
       }).join('');
+
+      // Show/hide completion banner
+      const banner = document.getElementById('lpCompleteBanner');
+      if (stage4Done) {
+        banner.style.display = 'block';
+        applyCompletionScoreBoost(roleKey);
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
+    function showLockedMsg(stageNum) {
+      showToast(`Complete Stage ${stageNum - 1} first to unlock Stage ${stageNum}.`);
+    }
+
+    function completeStage4(roleKey) {
+      sessionStorage.setItem(`pathpm_stage4_done_${roleKey}`, '1');
+      renderLearningPath(roleKey);
+      // Recompute progress bar
+      updateProgressBar();
+    }
+
+    function applyCompletionScoreBoost(roleKey) {
+      const boostKey = `pathpm_stage4_boosted_${roleKey}`;
+      if (sessionStorage.getItem(boostKey)) return; // already applied
+      const newScore = Math.min(95, score + 15);
+      score = newScore;
+      sessionStorage.setItem('pathpm_score', newScore);
+      sessionStorage.setItem(boostKey, '1');
+      updateScoreDisplay();
+      // Persist to Supabase if available
+      (async () => {
+        const sbUser = await getCurrentUser();
+        if (!sbUser) return;
+        await sb.from('user_role_selection')
+          .update({ final_score: newScore })
+          .eq('user_id', sbUser.id);
+      })();
+    }
+
+    function updateScoreDisplay() {
+      const SCORE_BANDS = [
+        { max: 49,  band: 'Early stage',            msg: 'Your background has real potential, but foundational PM knowledge is still the missing piece. Start with the learning path — the concepts will unlock everything else and your score will move quickly.' },
+        { max: 65,  band: 'Building your base',     msg: 'Solid instincts and transferable skills. A few core PM areas still need work before you\'re interview-ready. Targeted learning will close the gap fast — you\'re closer than you think.' },
+        { max: 79,  band: 'Nearly interview-ready', msg: 'Strong foundation — you could start applying selectively right now. Use mock interviews to sharpen how you communicate your thinking under pressure, and plug the remaining skill gaps.' },
+        { max: 100, band: 'PM-ready',               msg: 'Your skills and experience align well with PM roles. Focus on polishing your resume, practising your story, and applying. The hard work is done — now it\'s about execution.' },
+      ];
+      const band = SCORE_BANDS.find(b => score <= b.max) || SCORE_BANDS[SCORE_BANDS.length - 1];
+      document.getElementById('rsScore').textContent          = score;
+      document.getElementById('rsBand').textContent           = band.band;
+      document.getElementById('rsMessage').textContent        = band.msg;
+      document.getElementById('sidebarScoreNum').textContent  = score;
+      document.getElementById('sidebarBarFill').style.width   = score + '%';
+    }
+
+    function updateProgressBar() {
+      const totalStages     = document.querySelectorAll('.stages .stage').length;
+      const completedStages = document.querySelectorAll('.stages .stage.completed').length;
+      const activeDone      = document.querySelectorAll('.stages .stage.active-stage .lesson.done-lesson').length;
+      const activeTotal     = document.querySelectorAll('.stages .stage.active-stage .lesson').length;
+      const activePartial   = activeTotal > 0 ? activeDone / activeTotal : 0;
+      const progressPct     = totalStages > 0 ? Math.round(((completedStages + activePartial) / totalStages) * 100) : 0;
+      document.getElementById('lpProgressText').textContent = progressPct + '% OVERALL PROGRESS';
+      document.getElementById('lpProgressFill').style.width = progressPct + '%';
     }
 
     // Run immediately as fallback (sessionStorage values) in case Supabase is slow
@@ -454,6 +550,26 @@
       stage.classList.toggle('open');
       const chevron = stage.querySelector('.stage-chevron');
       chevron.classList.toggle('open-chevron');
+    }
+
+    function showToast(msg) {
+      let toast = document.getElementById('db-toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'db-toast';
+        toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 20px;border-radius:8px;font-size:0.85rem;font-weight:500;z-index:9999;opacity:0;transition:opacity 0.3s;white-space:nowrap;';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+    }
+
+    async function signOut() {
+      await sb.auth.signOut();
+      sessionStorage.clear();
+      window.location.href = 'auth.html';
     }
   </script>
 
