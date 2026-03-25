@@ -182,7 +182,7 @@
           <div class="msg-bubble user-bubble">
             <div class="msg-text">${text.replace(/\n/g, '<br>')}</div>
           </div>
-          <div class="user-avatar-sm" id="userAvatarSm">${getInitials()}</div>`;
+          <div class="user-avatar-sm" id="userAvatarSm">${getInitials(user.name)}</div>`;
         w.appendChild(wrap);
       }
 
@@ -236,9 +236,6 @@
       document.getElementById('progressFill').style.width = pct + '%';
     }
 
-    function getInitials() {
-      return getInitials(user.name);
-    }
 
     /* ─── ASK NEXT QUESTION ─── */
     function askQuestion(index, delay = 800) {

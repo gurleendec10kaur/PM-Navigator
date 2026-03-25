@@ -30,7 +30,19 @@
         .eq('user_id', session.user.id)
         .maybeSingle();
 
+      // Fetch full name from profiles table (most reliable source)
+      const { data: profile } = await sb
+        .from('profiles')
+        .select('name')
+        .eq('id', session.user.id)
+        .maybeSingle();
+      const fullName = profile?.name
+        || session.user.user_metadata?.full_name
+        || session.user.user_metadata?.name
+        || session.user.email.split('@')[0];
+
       sessionStorage.clear();
+      sessionStorage.setItem('pathpm_user', JSON.stringify({ name: fullName, email: session.user.email }));
       if (data) {
         sessionStorage.setItem('pathpm_role',       data.role_key);
         sessionStorage.setItem('pathpm_role_label', data.role_label);
