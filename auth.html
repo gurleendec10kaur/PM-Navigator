@@ -194,11 +194,14 @@
       }
     }
 
-    // ── Skip auth page if already logged in ──────────────────────────
-    (async () => {
-      const { data: { user } } = await sb.auth.getUser();
-      if (user) routeUser(user.id);
-    })();
+    // ── Skip auth page if already logged in (but not if user intentionally navigated to login tab) ──
+    const _params = new URLSearchParams(window.location.search);
+    if (_params.get('tab') !== 'login') {
+      (async () => {
+        const { data: { user } } = await sb.auth.getUser();
+        if (user) routeUser(user.id);
+      })();
+    }
 
     // Auto-switch tab based on URL param
     if (new URLSearchParams(window.location.search).get('tab') === 'login') switchTab('login');
