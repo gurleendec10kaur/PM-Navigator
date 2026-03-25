@@ -674,6 +674,39 @@
 
       function pickItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
+      // Filler phrases that pad length without adding value
+      const FILLERS = [
+        /\bin order to\b/gi,
+        /\bso as to\b/gi,
+        /\bon a regular basis\b/gi,
+        /\bon an ongoing basis\b/gi,
+        /\bwith the help of\b/gi,
+        /\bwith the aim of\b/gi,
+        /\bfor the purpose of\b/gi,
+        /\bwas able to\b/gi,
+        /\bwas responsible for\b/gi,
+        /\bin a timely manner\b/gi,
+        /\beffectively\b/gi,
+        /\bsuccessfully\b/gi,
+        /\bon a daily basis\b/gi,
+        /\bvarious\b/gi,
+        /\bmultiple different\b/gi,
+        /\ba number of\b/gi,
+      ];
+
+      function trimBullet(s) {
+        // Strip filler phrases
+        for (const f of FILLERS) s = s.replace(f, '');
+        // Collapse extra spaces
+        s = s.replace(/\s{2,}/g, ' ').replace(/\s+([,.])/g, '$1').trim();
+        // Hard cap at ~120 chars — cut at last word boundary before limit
+        if (s.length > 120) {
+          s = s.slice(0, 120).replace(/\s+\S*$/, '');
+          if (!/[.!?]$/.test(s)) s += '.';
+        }
+        return s;
+      }
+
       return bullets.map(b => {
         if (!b || b.length < 5) return b;
         let t = b.trim();
@@ -709,15 +742,11 @@
           t = pickItem(THEME_VERBS[theme]) + ' ' + t.charAt(0).toLowerCase() + t.slice(1);
         }
 
-        // 5 — Ensure ends with period
-        if (!/[.!?]$/.test(t)) t += '.';
+        // 5 — Trim fillers and cap length
+        t = trimBullet(t);
 
-        // 6 — Append a JD-relevant outcome phrase if the bullet has no result clause
-        //     and the JD emphasises this theme (adds impact framing without fabricating work)
-        if (!HAS_OUTCOME.test(t) && jdHas[theme] && OUTCOME_PHRASES[theme] && t.length < 180) {
-          const outcome = pickItem(OUTCOME_PHRASES[theme]);
-          t = t.replace(/\.$/, '') + ', ' + outcome + '.';
-        }
+        // 6 — Ensure ends with period
+        if (!/[.!?]$/.test(t)) t += '.';
 
         return t;
       });

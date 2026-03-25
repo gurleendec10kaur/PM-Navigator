@@ -1467,8 +1467,8 @@ ul { list-style: none; }
 .rs-exp-entry { margin-bottom: 16px; }
 .rs-exp-entry:last-child { margin-bottom: 0; }
 .rs-exp { display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 700; margin-bottom: 6px; }
-.rs-bullets { padding-left: 16px; }
-.rs-bullets li { font-size: 0.8rem; color: #374151; line-height: 1.55; margin-bottom: 5px; }
+.rs-bullets { padding-left: 20px; list-style: disc; }
+.rs-bullets li { font-size: 0.8rem; color: #374151; line-height: 1.55; margin-bottom: 5px; list-style: disc; }
 .rs-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .rs-tag { background: var(--light-bg); border: 1px solid var(--border); font-size: 0.75rem; font-weight: 600; padding: 3px 10px; border-radius: 20px; color: var(--dark); }
 .rb-right { width: 260px; flex-shrink: 0; padding: 24px 20px; border-left: 1px solid var(--border); background: #fff; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
