@@ -301,39 +301,14 @@
         ? window.location.origin
         : 'https://pathpm.vercel.app';
 
-      const { data, error } = await sb.auth.signInWithOAuth({
+      const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: base + '/auth-callback.html',
-          skipBrowserRedirect: true
+          queryParams: { prompt: 'select_account' }
         }
       });
-      if (error) { showToast(error.message, true); return; }
-
-      // Open in popup so auth.html stays accessible
-      const popup = window.open(data.url, 'google-oauth',
-        'width=480,height=600,scrollbars=yes,resizable=yes');
-
-      // Listen for callback page to signal completion
-      const onMessage = async (e) => {
-        if (e.data !== 'oauth-complete') return;
-        window.removeEventListener('message', onMessage);
-        clearInterval(pollTimer);
-        const { data: { session } } = await sb.auth.getSession();
-        if (session?.user) routeUser(session.user.id);
-      };
-      window.addEventListener('message', onMessage);
-
-      // Fallback poll in case postMessage is blocked
-      const pollTimer = setInterval(async () => {
-        if (!popup || popup.closed) {
-          clearInterval(pollTimer);
-          window.removeEventListener('message', onMessage);
-          await new Promise(r => setTimeout(r, 600));
-          const { data: { session } } = await sb.auth.getSession();
-          if (session?.user) routeUser(session.user.id);
-        }
-      }, 800);
+      if (error) { showToast(error.message, true); }
     }
 
     function togglePassword(id, btn) {

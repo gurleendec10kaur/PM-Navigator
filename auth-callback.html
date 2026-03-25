@@ -18,15 +18,25 @@
   <p>Completing sign in…</p>
   <script>
     (async () => {
-      // Give Supabase a moment to process the hash/code from Google
+      // Give Supabase a moment to exchange the OAuth code for a session
       await new Promise(r => setTimeout(r, 800));
       const { data: { session } } = await sb.auth.getSession();
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage('oauth-complete', '*');
-        window.close();
+      if (!session?.user) { window.location.href = 'auth.html'; return; }
+
+      // Route based on whether user has completed role selection
+      const { data } = await sb
+        .from('user_role_selection')
+        .select('role_key, role_label, final_score')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (data) {
+        sessionStorage.setItem('pathpm_role',       data.role_key);
+        sessionStorage.setItem('pathpm_role_label', data.role_label);
+        sessionStorage.setItem('pathpm_score',      data.final_score);
+        window.location.href = 'dashboard.html';
       } else {
-        // Fallback: no opener, navigate directly
-        window.location.href = session ? 'welcome.html' : 'auth.html';
+        window.location.href = 'welcome.html';
       }
     })();
   </script>
