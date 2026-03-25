@@ -30,6 +30,7 @@
         .eq('user_id', session.user.id)
         .maybeSingle();
 
+      sessionStorage.clear();
       if (data) {
         sessionStorage.setItem('pathpm_role',       data.role_key);
         sessionStorage.setItem('pathpm_role_label', data.role_label);

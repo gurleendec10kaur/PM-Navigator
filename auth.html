@@ -248,6 +248,7 @@
 
         // Email confirmation is off — user is immediately signed in
         if (data.session) {
+          sessionStorage.clear();
           sessionStorage.setItem('pathpm_user', JSON.stringify({ name, email }));
           routeUser(data.user.id);
         } else {
@@ -285,6 +286,7 @@
         // Store name from metadata or profiles
         const { data: profile } = await sb.from('profiles').select('name').eq('id', data.user.id).maybeSingle();
         const name = profile?.name || data.user.user_metadata?.name || email.split('@')[0];
+        sessionStorage.clear();
         sessionStorage.setItem('pathpm_user', JSON.stringify({ name, email }));
         showToast('Welcome back, ' + name.split(' ')[0] + '!');
 
