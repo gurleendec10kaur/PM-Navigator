@@ -12,7 +12,7 @@
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
-    <a href="dashboard.html" class="logo db-logo">
+    <a href="welcome.html" class="logo db-logo">
       <span class="logo-dot"></span> PathPM
     </a>
 
@@ -110,7 +110,13 @@
       <!-- LEARNING PATH -->
       <div id="panel-learning">
         <div class="learning-header">
-          <h3 class="lp-title">Your Learning Path: <span id="lpRole">Growth PM</span></h3>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <h3 class="lp-title">Your Learning Path: <span id="lpRole">Growth PM</span></h3>
+            <div id="roleActionBtns" style="display:flex;gap:8px;">
+              <a href="choose-role.html" style="font-size:0.78rem;color:var(--green);font-weight:600;text-decoration:none;border:1px solid var(--green);border-radius:6px;padding:3px 10px;white-space:nowrap;">Change role</a>
+              <button onclick="keepCurrentRole()" style="font-size:0.78rem;color:var(--text-muted);font-weight:600;background:none;border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer;white-space:nowrap;">Keep this role</button>
+            </div>
+          </div>
           <span class="lp-progress" id="lpProgressText">0% OVERALL PROGRESS</span>
         </div>
         <div class="lp-progress-bar">
@@ -173,8 +179,6 @@
       initDashboard();
     })();
 
-    function initDashboard() {
-
     const ROLE_ALT = {
       growth:     { alt: 'Technical PM',   altKey: 'technical',  skills: 'Stakeholder Mgmt and Data Analysis' },
       generalist: { alt: 'Growth PM',      altKey: 'growth',     skills: 'Communication and Roadmapping' },
@@ -183,6 +187,8 @@
       aiml:       { alt: 'Data PM',        altKey: 'data',       skills: 'Data Analysis and ML Fundamentals' },
       data:       { alt: 'Technical PM',   altKey: 'technical',  skills: 'SQL and Data Pipeline skills' },
     };
+
+    function initDashboard() {
 
     // Set user
     const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
@@ -237,6 +243,14 @@
     setTimeout(() => {
       document.getElementById('lpProgressFill').style.width = progressPct + '%';
     }, 300);
+
+    // Scroll to learning path if returning from quiz
+    if (new URLSearchParams(window.location.search).get('scroll') === 'learning') {
+      setTimeout(() => {
+        const el = document.getElementById('panel-learning');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 400);
+    }
 
     } // end initDashboard()
 
@@ -330,6 +344,8 @@
 
     function renderLearningPath(roleKey) {
       const path = LEARNING_PATHS[roleKey] || LEARNING_PATHS.generalist;
+      const quizScore = sessionStorage.getItem(`pathpm_quiz_done_${roleKey}`);
+      const quizDone  = quizScore !== null;
       const container = document.getElementById('stagesContainer');
       container.innerHTML = path.map((stage, i) => {
         const stageNum = String(i + 1).padStart(2, '0');
@@ -347,20 +363,30 @@
             </div>`;
         }
         if (stage.status === 'active') {
-          const lessonsHtml = stage.lessons.map(l => {
-            if (l.status === 'done') return `
+          const lessonsHtml = stage.lessons.map((l, li) => {
+            // If quiz was completed, mark quiz lesson done and unlock next lesson
+            const effectiveStatus = quizDone
+              ? (l.status === 'active' ? 'done'
+                : l.status === 'locked' && li === stage.lessons.findIndex(x => x.status === 'locked') ? 'active'
+                : l.status)
+              : l.status;
+
+            if (effectiveStatus === 'done') return `
               <div class="lesson done-lesson">
                 <span class="lesson-check">✓</span>
                 <div class="lesson-info"><strong>${l.title}</strong><span>${l.meta} · Done</span></div>
               </div>`;
-            if (l.status === 'active') return `
+            if (effectiveStatus === 'active') return `
               <div class="lesson active-lesson">
                 <span class="lesson-active-dot"></span>
                 <div class="lesson-info">
                   <strong>${l.title}</strong>
-                  <span class="active-tag">${l.meta}</span>
+                  <span class="active-tag">${l.status === 'locked' ? 'ACTIVE MODULE · UNLOCKED' : l.meta}</span>
                 </div>
-                <button class="btn-primary small" onclick="event.stopPropagation(); window.location.href='mcq.html?count=10'">Start Quiz</button>
+                ${l.status === 'locked'
+                  ? `<button class="btn-primary small" onclick="event.stopPropagation();">Start Project</button>`
+                  : `<button class="btn-primary small" onclick="event.stopPropagation(); window.location.href='stage-quiz.html?role=${roleKey}'">Start Quiz</button>`
+                }
               </div>`;
             return `
               <div class="lesson locked-lesson">
@@ -393,6 +419,12 @@
     // Run immediately as fallback (sessionStorage values) in case Supabase is slow
     initDashboard();
 
+    function keepCurrentRole() {
+      document.getElementById('suggestionBanner').style.display = 'none';
+      const keepBtn = document.querySelector('#roleActionBtns button');
+      if (keepBtn) keepBtn.style.display = 'none';
+    }
+
     function dismissBanner() {
       document.getElementById('suggestionBanner').style.display = 'none';
       const learningPanel = document.getElementById('panel-learning');
@@ -403,9 +435,21 @@
     }
     function switchRole() {
       const altData = ROLE_ALT[role] || ROLE_ALT.growth;
-      sessionStorage.setItem('pathpm_role', altData.altKey);
-      sessionStorage.setItem('pathpm_role_label', altData.alt);
-      window.location.href = 'mcq.html?from=switch';
+      role      = altData.altKey;
+      roleLabel = altData.alt;
+      sessionStorage.setItem('pathpm_role',       role);
+      sessionStorage.setItem('pathpm_role_label', roleLabel);
+
+      // Update role label in learning path header + sidebar
+      document.getElementById('lpRole').textContent          = roleLabel;
+      document.getElementById('sidebarRoleBadge').textContent = 'Target: ' + roleLabel;
+
+      // Re-render learning path for new role
+      renderLearningPath(role);
+
+      // Hide banner and scroll to learning path
+      document.getElementById('suggestionBanner').style.display = 'none';
+      document.getElementById('panel-learning').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function toggleStage(stage) {

@@ -11,7 +11,7 @@
 <body class="onboarding-page mcq-page">
 
   <nav class="onboarding-nav role-nav">
-    <a href="dashboard.html" class="logo on-logo"><span class="logo-dot"></span> PathPM</a>
+    <a href="welcome.html" class="logo on-logo"><span class="logo-dot"></span> PathPM</a>
     <div class="stepper">
       <div class="step done-step"><span class="step-bubble done-bubble">✓</span><span class="step-name muted">Resume Parsed</span></div>
       <div class="step-line filled"></div>
@@ -21,6 +21,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <button class="save-exit-btn" onclick="saveProgress()">Save</button>
+      <button class="signout-btn" onclick="window.location.href='dashboard.html'" style="background:none;border:1px solid var(--border);color:var(--text-muted);">Skip for now</button>
       <button class="signout-btn" onclick="signOut()">Sign out</button>
     </div>
   </nav>

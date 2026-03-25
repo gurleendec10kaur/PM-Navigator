@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPM – Stage Quiz</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <style>
+    .quiz-page { min-height: 100vh; background: var(--light-bg); display: flex; flex-direction: column; }
+
+    .quiz-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 40px; background: #fff; border-bottom: 1px solid var(--border);
+    }
+
+    .quiz-body {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 48px 24px 80px;
+    }
+
+    .quiz-card {
+      width: 100%; max-width: 720px; background: #fff;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 40px 44px;
+    }
+
+    .quiz-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .quiz-counter {
+      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--text-muted);
+    }
+    .quiz-topic-tag {
+      font-size: 0.75rem; font-weight: 600; color: var(--green);
+      background: #f0fff8; border: 1px solid #d1fae5;
+      border-radius: 20px; padding: 3px 12px;
+    }
+
+    .quiz-progress-bar {
+      height: 4px; background: var(--border); border-radius: 2px;
+      margin-bottom: 32px; overflow: hidden;
+    }
+    .quiz-progress-fill {
+      height: 100%; background: var(--green); border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+
+    .quiz-question {
+      font-size: 1.12rem; font-weight: 600; color: var(--dark);
+      line-height: 1.5; margin-bottom: 28px;
+    }
+
+    .quiz-options { display: flex; flex-direction: column; gap: 12px; }
+
+    .quiz-option {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 14px 18px; border: 1.5px solid var(--border);
+      border-radius: 10px; cursor: pointer; transition: all .15s;
+      font-size: 0.93rem; color: var(--dark); line-height: 1.5;
+      background: #fff;
+    }
+    .quiz-option:hover:not(.revealed) { border-color: var(--green); background: #f9fffd; }
+    .quiz-option .opt-letter {
+      font-size: 0.78rem; font-weight: 700; color: var(--text-muted);
+      min-width: 20px; margin-top: 2px;
+    }
+
+    /* Revealed states */
+    .quiz-option.opt-good   { border-color: #00a86b; background: #f0fff8; }
+    .quiz-option.opt-avg    { border-color: #f59e0b; background: #fffbeb; }
+    .quiz-option.opt-below  { border-color: #e5e7eb; background: #f9fafb; color: var(--text-muted); }
+    .quiz-option.opt-good .opt-letter   { color: #00a86b; }
+    .quiz-option.opt-avg .opt-letter    { color: #f59e0b; }
+
+    .opt-badge {
+      margin-left: auto; font-size: 0.7rem; font-weight: 700;
+      padding: 2px 8px; border-radius: 4px; white-space: nowrap; align-self: center;
+    }
+    .opt-badge.good  { background: #d1fae5; color: #065f46; }
+    .opt-badge.avg   { background: #fef3c7; color: #92400e; }
+
+    /* Feedback panel */
+    .quiz-feedback {
+      margin-top: 28px; display: none; flex-direction: column; gap: 12px;
+    }
+    .quiz-feedback.visible { display: flex; }
+
+    .feedback-card {
+      border-radius: 10px; padding: 16px 18px; font-size: 0.86rem; line-height: 1.6;
+    }
+    .feedback-card strong { display: block; font-size: 0.78rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+    .fc-good  { background: #f0fff8; border: 1px solid #d1fae5; color: #065f46; }
+    .fc-good strong { color: #00a86b; }
+    .fc-avg   { background: #fffbeb; border: 1px solid #fde68a; color: #78350f; }
+    .fc-avg strong { color: #d97706; }
+    .fc-you   { background: #f8fafc; border: 1px solid var(--border); color: var(--dark); }
+    .fc-you strong { color: var(--text-muted); }
+
+    .quiz-next-btn {
+      margin-top: 24px; width: 100%; padding: 14px;
+      background: var(--green); color: #fff; border: none;
+      border-radius: 10px; font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .quiz-next-btn:hover { opacity: 0.88; }
+
+    /* Results screen */
+    .results-screen { display: none; flex-direction: column; align-items: center; text-align: center; }
+    .results-screen.visible { display: flex; }
+    .results-score-circle {
+      width: 100px; height: 100px; border-radius: 50%;
+      border: 4px solid var(--green); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; margin-bottom: 20px;
+    }
+    .rsc-num { font-size: 2rem; font-weight: 800; color: var(--dark); line-height: 1; }
+    .rsc-denom { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+    .results-level {
+      font-size: 1.3rem; font-weight: 700; color: var(--dark); margin-bottom: 8px;
+    }
+    .results-msg { font-size: 0.92rem; color: var(--text-muted); max-width: 480px; line-height: 1.7; margin-bottom: 32px; }
+
+    .results-breakdown {
+      width: 100%; display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px;
+    }
+    .rb-row { display: flex; align-items: center; gap: 16px; padding: 14px 18px;
+      border-radius: 10px; font-size: 0.86rem; text-align: left; }
+    .rb-row.good  { background: #f0fff8; border: 1px solid #d1fae5; }
+    .rb-row.avg   { background: #fffbeb; border: 1px solid #fde68a; }
+    .rb-row.you   { background: #f8fafc; border: 1px solid var(--border); }
+    .rb-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; min-width: 120px; }
+    .rb-row.good .rb-label { color: #00a86b; }
+    .rb-row.avg  .rb-label { color: #d97706; }
+    .rb-row.you  .rb-label { color: var(--text-muted); }
+    .rb-text { color: var(--dark); line-height: 1.5; }
+
+    .results-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+    @media (max-width: 600px) {
+      .quiz-card { padding: 24px 20px; }
+      .quiz-nav { padding: 14px 20px; }
+    }
+  </style>
+</head>
+<body class="quiz-page">
+
+  <nav class="quiz-nav">
+    <a href="welcome.html" class="logo">&#9632; PathPM</a>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="navRoleTag" class="quiz-topic-tag"></span>
+      <button class="signout-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </nav>
+
+  <div class="quiz-body">
+    <div class="quiz-card" id="quizCard">
+
+      <!-- Question screen -->
+      <div id="questionScreen">
+        <div class="quiz-meta">
+          <span class="quiz-counter" id="quizCounter">QUESTION 1 OF 5</span>
+          <span class="quiz-topic-tag" id="quizTopicTag"></span>
+        </div>
+        <div class="quiz-progress-bar">
+          <div class="quiz-progress-fill" id="quizProgressFill" style="width:0%"></div>
+        </div>
+        <p class="quiz-question" id="quizQuestion"></p>
+        <div class="quiz-options" id="quizOptions"></div>
+        <div class="quiz-feedback" id="quizFeedback">
+          <div class="feedback-card fc-good" id="fbGood">
+            <strong>What a Good PM does</strong>
+            <span id="fbGoodText"></span>
+          </div>
+          <div class="feedback-card fc-avg" id="fbAvg">
+            <strong>What an Average PM does</strong>
+            <span id="fbAvgText"></span>
+          </div>
+          <div class="feedback-card fc-you" id="fbYou">
+            <strong>Where you stand</strong>
+            <span id="fbYouText"></span>
+          </div>
+        </div>
+        <button class="quiz-next-btn hidden" id="nextBtn" onclick="nextQuestion()">Next Question →</button>
+      </div>
+
+      <!-- Results screen -->
+      <div class="results-screen" id="resultsScreen">
+        <div class="results-score-circle">
+          <span class="rsc-num" id="rScore">0</span>
+          <span class="rsc-denom">/ 5</span>
+        </div>
+        <div class="results-level" id="rLevel"></div>
+        <p class="results-msg" id="rMsg"></p>
+        <div class="results-breakdown" id="rBreakdown"></div>
+        <div style="display:flex;align-items:center;gap:10px;background:#f0fff8;border:1px solid #d1fae5;border-radius:10px;padding:14px 18px;margin-bottom:24px;font-size:0.84rem;color:#065f46;text-align:left;">
+          <span style="font-size:1.3rem;">✅</span>
+          <div>
+            <strong style="display:block;margin-bottom:2px;">Learning path updated</strong>
+            Your readiness score has been boosted and the next module is now unlocked on your dashboard.
+          </div>
+        </div>
+        <div class="results-actions">
+          <button class="btn-primary" onclick="window.location.href='dashboard.html?scroll=learning'">See Updated Dashboard →</button>
+          <button class="btn-outline" onclick="retakeQuiz()">Retake Quiz</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const LETTERS = ['A', 'B', 'C', 'D'];
+
+    // ── Quiz data per role ────────────────────────────────────────
+    const QUIZ_DATA = {
+
+      growth: {
+        topic: 'Product Sense & Strategy',
+        questions: [
+          {
+            q: "Your product's activation rate drops from 45% to 30% in two weeks. What's your first step?",
+            options: [
+              { text: "Send a survey to recently activated users to understand their experience", level: 'avg' },
+              { text: "Segment the drop by acquisition channel, device, and user cohort to isolate where drop-off increased", level: 'good' },
+              { text: "Schedule an emergency meeting with engineering to check for bugs", level: 'below' },
+              { text: "Add more onboarding tooltips to the signup flow", level: 'below' },
+            ],
+            goodPM: "Segments the drop systematically — by channel, device, cohort, and funnel step — to pinpoint the exact failure point before acting.",
+            avgPM: "Quickly identifies something broke and starts user research, but skips the structured data breakdown that reveals where to actually fix.",
+            insight: { good: "You diagnosed before prescribing — the hallmark of a data-driven PM.", avg: "You started user research, which is good instinct, but systematic segmentation comes first.", below: "Acting before diagnosing leads to fixing the wrong thing. Segment the data first." }
+          },
+          {
+            q: "You have 3 features requested by sales, 2 from customer support, and 1 from your own user research. How do you decide what to build?",
+            options: [
+              { text: "Build what sales wants first — they drive revenue", level: 'below' },
+              { text: "Score each feature using RICE (Reach, Impact, Confidence, Effort) against your current growth goal", level: 'good' },
+              { text: "Run a quick user poll to see what users want most", level: 'avg' },
+              { text: "Build the easiest features first to show momentum", level: 'below' },
+            ],
+            goodPM: "Applies a structured prioritisation framework (e.g., RICE) tied to the current strategic goal — not stakeholder seniority or ease of build.",
+            avgPM: "Gathers user feedback to validate requests, which is directionally right, but doesn't systematically weigh impact vs. effort.",
+            insight: { good: "You used a framework tied to goals — that's how strong PMs cut through stakeholder noise.", avg: "User validation is good, but a framework gives you a defensible, repeatable decision process.", below: "Prioritising by effort or stakeholder seniority optimises for the wrong thing." }
+          },
+          {
+            q: "You're deciding whether to optimise your existing referral program or launch a new viral loop feature. How do you decide?",
+            options: [
+              { text: "Launch the new viral loop — it's a bigger opportunity", level: 'below' },
+              { text: "Optimise the referral program — it's already working", level: 'below' },
+              { text: "Run a quick experiment on the referral program first; invest in the viral loop if results plateau", level: 'good' },
+              { text: "Ask the growth team which one they're more excited to build", level: 'below' },
+            ],
+            goodPM: "Tests the hypothesis with the smallest experiment before committing. Optimises known channels before exploring new ones.",
+            avgPM: "Makes the call based on intuition or team preference, rather than letting data guide the sequencing.",
+            insight: { good: "Experiment-first thinking saves you from betting big on unproven ideas.", avg: "Gut calls sometimes work, but you're not building a repeatable decision process.", below: "Neither intuition nor team excitement is a reliable signal for what will actually drive growth." }
+          },
+          {
+            q: "How do you define success for a new onboarding flow redesign?",
+            options: [
+              { text: "Increase in CSAT scores post-onboarding", level: 'avg' },
+              { text: "Improvement in time-to-first-value AND 7-day retention for new users", level: 'good' },
+              { text: "Reduction in onboarding completion time", level: 'below' },
+              { text: "More users completing all onboarding steps", level: 'below' },
+            ],
+            goodPM: "Defines success as reaching the 'aha moment' faster (time-to-first-value) and verifying it sticks (7-day retention) — not just completion or satisfaction.",
+            avgPM: "Tracks satisfaction scores, which reflect user sentiment but don't confirm the redesign actually drove retention or value.",
+            insight: { good: "You nailed it — pairing activation speed with downstream retention is the right success formula.", avg: "CSAT is a proxy. What you really want to know is: did users get value AND come back?", below: "Speed and completion rate don't tell you if users actually got value from onboarding." }
+          },
+          {
+            q: "A competitor just launched a feature your users have been requesting for 6 months. What do you do?",
+            options: [
+              { text: "Immediately reprioritise your roadmap to build the same feature", level: 'below' },
+              { text: "Assess whether this is now table-stakes; fast-follow only if NOT having it creates churn risk", level: 'good' },
+              { text: "Communicate to users that you're aware of it and it's on the roadmap", level: 'avg' },
+              { text: "Ignore it — you have a roadmap and shouldn't react to competitors", level: 'below' },
+            ],
+            goodPM: "Evaluates whether the feature is now table-stakes (must-have parity) or differentiating, and only fast-follows if absence creates churn risk.",
+            avgPM: "Reassures users proactively, which builds trust, but doesn't rigorously assess whether it actually threatens retention.",
+            insight: { good: "Evaluating strategic impact before reacting is what separates leaders from followers.", avg: "Proactive comms is good, but without a strategic assessment you might be building the wrong thing.", below: "Reactive roadmap changes waste cycles. Ignoring competitors entirely is equally risky." }
+          },
+        ]
+      },
+
+      technical: {
+        topic: 'Engineering Collaboration & System Design',
+        questions: [
+          {
+            q: "Engineering estimates a feature at 6 weeks. You need it in 3 weeks for a key launch. What do you do?",
+            options: [
+              { text: "Tell engineering to work overtime to hit the deadline", level: 'below' },
+              { text: "Scope down to an MVP that delivers core value in 3 weeks, deferring non-critical parts", level: 'good' },
+              { text: "Push the launch date by 3 weeks", level: 'avg' },
+              { text: "Ask a different team to build it in parallel", level: 'below' },
+            ],
+            goodPM: "Negotiates scope, not timeline. Identifies which parts deliver 80% of the value and ships those, treating the rest as a fast-follow.",
+            avgPM: "Accepts the timeline delay without exploring scope reduction — a defensible choice but misses the opportunity to deliver partial value sooner.",
+            insight: { good: "Scope negotiation is one of the most valuable PM skills. You found the third option.", avg: "Delaying is sometimes right, but did you explore whether an MVP was possible?", below: "Crunch culture breaks teams. Splitting work across teams creates coordination debt." }
+          },
+          {
+            q: "Your team debates building a new feature on microservices vs. extending the existing monolith. How do you contribute?",
+            options: [
+              { text: "Let engineering decide — it's a technical choice", level: 'below' },
+              { text: "Understand the tradeoffs, share your 12-month product roadmap, and align on what future use cases require", level: 'good' },
+              { text: "Choose microservices — it's the modern standard", level: 'below' },
+              { text: "Ask which option engineering prefers and support their call", level: 'avg' },
+            ],
+            goodPM: "Frames the architectural decision in terms of product roadmap and future use cases, giving engineering the context to make the right call.",
+            avgPM: "Defers to engineering preference, which is respectful of their expertise but misses the PM's role in providing product trajectory context.",
+            insight: { good: "You added context, not opinion — that's the right PM contribution to an architectural debate.", avg: "Supporting the team is good, but they need your product roadmap context to make the best technical call.", below: "Architecture decisions have long-term product implications. PMs need to engage, not opt out or over-prescribe." }
+          },
+          {
+            q: "A third-party API you depend on is failing 2% of the time. Users are seeing errors. What's your plan?",
+            options: [
+              { text: "Contact the vendor and wait for them to fix it", level: 'below' },
+              { text: "Implement graceful degradation while engineering adds monitoring and pursues a vendor SLA improvement", level: 'good' },
+              { text: "Build your own replacement API immediately", level: 'below' },
+              { text: "Add a retry mechanism and monitor to see if it improves", level: 'avg' },
+            ],
+            goodPM: "Drives short-term mitigation (graceful degradation so users aren't impacted) and a medium-term fix (SLA, backup), simultaneously.",
+            avgPM: "Implements a technical workaround (retries), which helps, but doesn't address user experience or negotiate a better SLA.",
+            insight: { good: "Two-track thinking — fix the user experience now, fix the root cause in parallel.", avg: "Retries reduce errors but users still feel the degraded experience. What's the user-facing fallback?", below: "Waiting on vendors risks SLAs. Building your own is disproportionate for a 2% failure rate." }
+          },
+          {
+            q: "What belongs in a technical spec (PRD) before handing off to engineering?",
+            options: [
+              { text: "A list of all features; let engineering figure out implementation", level: 'below' },
+              { text: "Problem statement, user stories, acceptance criteria, non-goals, and known technical constraints", level: 'good' },
+              { text: "Detailed wireframes that engineering should match exactly", level: 'below' },
+              { text: "Desired user outcomes and key edge cases; collaborate with engineering on the rest", level: 'avg' },
+            ],
+            goodPM: "Writes specs that include non-goals and known constraints — the most commonly missed sections — so engineering isn't guessing about what NOT to build.",
+            avgPM: "Covers outcomes and edge cases, which is solid, but often misses non-goals — leading to scope creep mid-sprint.",
+            insight: { good: "Non-goals are underrated. They prevent more scope creep than any amount of requirements detail.", avg: "Outcome-focused specs are great. Add non-goals explicitly to prevent scope creep.", below: "Feature lists invite scope creep. Wireframes constrain creativity. Neither sets engineering up to succeed." }
+          },
+          {
+            q: "Engineering proposes a 2-month core module rewrite for better performance, delaying the next feature. How do you decide?",
+            options: [
+              { text: "Always say yes to tech debt reduction", level: 'below' },
+              { text: "Quantify the user impact of the performance issue and the revenue/retention risk of the feature delay, then decide", level: 'good' },
+              { text: "Always prioritise new features over infrastructure", level: 'below' },
+              { text: "Do a smaller targeted optimisation now; full rewrite later if metrics don't improve", level: 'avg' },
+            ],
+            goodPM: "Quantifies both sides of the tradeoff in business terms (user impact, retention, revenue risk) before deciding — not a reflexive yes or no.",
+            avgPM: "Proposes a partial optimisation compromise, which is pragmatic, but avoids the harder conversation about relative priority and business impact.",
+            insight: { good: "You turned a technical debate into a business decision — exactly what PMs are for.", avg: "Phased approach is pragmatic, but have you actually compared the business value on both sides?", below: "Neither 'always yes' nor 'always no' is a strategy. Quantify the tradeoff." }
+          },
+        ]
+      },
+
+      platform: {
+        topic: 'Developer Experience & Ecosystems',
+        questions: [
+          {
+            q: "Developer adoption of your API has plateaued for 3 months after launch. What do you investigate first?",
+            options: [
+              { text: "Reduce pricing to attract more developers", level: 'below' },
+              { text: "Map the developer integration funnel and find the exact drop-off point; interview churned developers", level: 'good' },
+              { text: "Launch marketing campaigns targeting developers", level: 'below' },
+              { text: "Add more code samples and improve the documentation", level: 'avg' },
+            ],
+            goodPM: "Maps the developer funnel (auth → first call → sandbox → go-live) and identifies the precise step where developers drop off before prescribing a fix.",
+            avgPM: "Improves documentation, which is often the right lever, but without diagnosing whether it's actually the bottleneck in your specific funnel.",
+            insight: { good: "Funnel analysis before fix is exactly right — documentation might not even be the issue.", avg: "Docs are a common lever, but did you confirm that's where developers are actually dropping off?", below: "Price and marketing rarely fix an adoption plateau caused by a broken integration experience." }
+          },
+          {
+            q: "A large enterprise customer wants a custom API endpoint that no other customer needs. What do you do?",
+            options: [
+              { text: "Build it — they're a large customer", level: 'below' },
+              { text: "Evaluate whether this is a unique need or a broader pattern; build a configurable solution if it generalises", level: 'good' },
+              { text: "Decline — you don't want to maintain one-off endpoints", level: 'below' },
+              { text: "Build it but flag it as deprecated after 12 months", level: 'avg' },
+            ],
+            goodPM: "Treats the enterprise request as a discovery signal — if one customer has this pain, others likely do too. Builds generalisable, not one-off.",
+            avgPM: "Compromise deprecation timeline protects the platform somewhat, but still creates maintenance burden without validating broader need.",
+            insight: { good: "Enterprise requests are often signals of unmet needs at scale. You spotted the pattern opportunity.", avg: "Deprecation timelines are a compromise, not a strategy. Is this solving a broader developer pain?", below: "One-off endpoints create maintenance debt. Flat refusals lose customers. Neither is the answer." }
+          },
+          {
+            q: "You're launching v2 of your API that breaks backwards compatibility. How do you manage the transition?",
+            options: [
+              { text: "Launch v2 and give developers 30 days to migrate", level: 'below' },
+              { text: "Run v1 and v2 in parallel with a migration guide, clear deprecation timeline, and migration tooling", level: 'good' },
+              { text: "Only launch v2 for new customers; keep v1 for existing ones", level: 'avg' },
+              { text: "Find a way to make v2 backwards-compatible even if it's messier", level: 'below' },
+            ],
+            goodPM: "Parallel versioning with tooling and a clear timeline is the gold standard — respects existing integrations while moving the platform forward.",
+            avgPM: "Segmenting by customer type reduces immediate disruption but creates two codebases to maintain and fragments the ecosystem long-term.",
+            insight: { good: "Parallel versioning with migration tooling is exactly how the best platforms handle breaking changes.", avg: "Two customer segments = two codebases. That's technical debt with a customer segmentation label on it.", below: "30 days is rarely enough for enterprise integrations. Forcing backwards-compatibility creates architectural debt." }
+          },
+          {
+            q: "How do you measure the success of a developer platform?",
+            options: [
+              { text: "Number of API calls per month", level: 'below' },
+              { text: "Time-to-first-call, integration completion rate, and number of apps live in production", level: 'good' },
+              { text: "Developer NPS and documentation satisfaction scores", level: 'avg' },
+              { text: "Number of registered developer accounts", level: 'below' },
+            ],
+            goodPM: "Focuses on activation and production usage — 'live integrations' is the true north star, not registrations or raw API volume.",
+            avgPM: "Developer NPS captures sentiment and is worth tracking, but doesn't tell you if developers are actually succeeding with the platform.",
+            insight: { good: "Production usage is the ultimate proof. Time-to-first-call tells you if your DX is working.", avg: "NPS is useful but lagging. How many developers actually have working integrations in production?", below: "Registrations and call volume measure activity, not developer success or platform health." }
+          },
+          {
+            q: "A popular third-party developer built a tool on your platform that now competes with one of your planned features. What do you do?",
+            options: [
+              { text: "Limit their API access to protect your roadmap", level: 'below' },
+              { text: "Evaluate whether to acquire, partner, or build alongside — and be transparent with the ecosystem about your intent", level: 'good' },
+              { text: "Accelerate your own feature to beat them to market", level: 'avg' },
+              { text: "Do nothing — the market will decide", level: 'below' },
+            ],
+            goodPM: "Navigates platform/ecosystem tension by evaluating acquisition or partnership first, maintaining trust with the developer community.",
+            avgPM: "Competing directly may win the immediate battle but signals to developers that the platform will cannibalise successful third-party apps.",
+            insight: { good: "Ecosystem trust is a platform's most valuable asset. You treated the developer as a potential partner first.", avg: "Competing is sometimes right, but have you considered what signal this sends to your developer ecosystem?", below: "Restricting access kills ecosystem trust. Inaction cedes strategic ground without a fight." }
+          },
+        ]
+      },
+
+      aiml: {
+        topic: 'LLMs, Generative AI & Product Applications',
+        questions: [
+          {
+            q: "You're building a customer support chatbot using an LLM. How do you determine it's ready to launch?",
+            options: [
+              { text: "Test it manually with 20–30 sample questions", level: 'below' },
+              { text: "Build an eval framework: accuracy on a labelled test set, hallucination rate, task completion, and escalation rate", level: 'good' },
+              { text: "Run a closed beta with 100 users and collect their feedback", level: 'avg' },
+              { text: "Compare output quality against a competitor's chatbot", level: 'below' },
+            ],
+            goodPM: "Builds systematic evaluation (evals) with labelled test sets and quantitative metrics — AI products need reproducible testing, not just qualitative feedback.",
+            avgPM: "Beta testing catches real-world edge cases but isn't systematic enough to prevent regressions as the model or prompts change over time.",
+            insight: { good: "Eval-first thinking is the foundation of reliable AI products. You're building for repeatability.", avg: "Beta feedback is valuable but subjective. What happens when the model updates — will you catch regressions?", below: "Manual testing and competitor comparisons don't scale or give you a baseline to detect regressions." }
+          },
+          {
+            q: "Your LLM feature costs $0.04 per session. At 1M sessions/day, that's $40K/day. How do you approach this?",
+            options: [
+              { text: "Accept the cost — AI features are inherently expensive", level: 'below' },
+              { text: "Profile which queries need the full model vs. a smaller model; route accordingly and cache common responses", level: 'good' },
+              { text: "Raise product pricing to offset the cost", level: 'below' },
+              { text: "Add daily usage limits per user to control spend", level: 'avg' },
+            ],
+            goodPM: "Implements intelligent routing — smaller/cheaper models for simple queries, caching for repetitive ones — reducing cost without degrading user experience.",
+            avgPM: "Usage limits control cost but directly harm the user experience and signal poor capacity planning to stakeholders.",
+            insight: { good: "Cost architecture is a core AI PM skill. Routing + caching is the right lever.", avg: "Usage limits are a blunt tool. They protect the budget but create friction for users who hit them.", below: "Accepting runaway costs or raising prices without optimising first leaves money on the table." }
+          },
+          {
+            q: "Users report that your AI feature occasionally gives confidently wrong answers. How do you address it?",
+            options: [
+              { text: "Add a disclaimer: 'AI can make mistakes'", level: 'below' },
+              { text: "Add confidence scoring, human-in-the-loop for low-confidence responses, and track hallucination rate as a KPI", level: 'good' },
+              { text: "Switch to a more accurate model", level: 'avg' },
+              { text: "Limit the feature to lower-risk query types only", level: 'below' },
+            ],
+            goodPM: "Treats hallucination as a measurable product quality metric and builds system-level mitigations (confidence routing, human review) into the product.",
+            avgPM: "Upgrading the model helps reduce errors but doesn't address the underlying product gap: no safety net exists when the model is wrong.",
+            insight: { good: "You made hallucination a product problem, not just a model problem — that's the right framing.", avg: "Better models reduce errors but don't eliminate them. What's the user experience when the new model is still wrong?", below: "Disclaimers shift blame without solving the problem. Restricting scope reduces value without improving reliability." }
+          },
+          {
+            q: "Stakeholders want an AI feature in 4 weeks. Your team estimates 3 months for a robust build. How do you proceed?",
+            options: [
+              { text: "Commit to 4 weeks and cut corners on safety testing", level: 'below' },
+              { text: "Scope an MVP covering the top 3 use cases with guardrails in 4 weeks; build full capability in follow-on sprints", level: 'good' },
+              { text: "Push back firmly — AI features can't be rushed", level: 'avg' },
+              { text: "Outsource the AI component to a vendor to hit the deadline", level: 'below' },
+            ],
+            goodPM: "Scopes the MVP to the safest, highest-value use cases with proper guardrails — ships fast without creating safety or quality debt.",
+            avgPM: "Holding the line on quality is principled but often misses the opportunity to deliver partial value while building towards the full vision.",
+            insight: { good: "Guardrailed MVP is exactly right — you delivered speed AND responsibility.", avg: "Standing firm on timelines is sometimes correct, but did you explore whether a scoped, safe version was possible?", below: "Cutting safety corners in AI creates trust debt that's very hard to recover. Vendors rarely own accountability." }
+          },
+          {
+            q: "You're deciding whether to fine-tune your LLM or use prompt engineering for a new use case. How do you decide?",
+            options: [
+              { text: "Always fine-tune — it gives better results", level: 'below' },
+              { text: "Default to prompt engineering first; fine-tune only if quality plateaus and the use case is stable enough to justify training cost", level: 'good' },
+              { text: "Test both approaches and pick whichever performs better on your eval set", level: 'avg' },
+              { text: "Ask engineering which they prefer to implement", level: 'below' },
+            ],
+            goodPM: "Applies prompt-first by default — iterate quickly and cheaply before committing to fine-tuning, which requires labelled data, training cost, and retraining on every model update.",
+            avgPM: "A/B testing both approaches is empirically sound but wastes cycles on every new use case without a default principle.",
+            insight: { good: "Prompt-first is the right default. Fine-tuning is a last resort when prompts genuinely plateau.", avg: "Testing both is thorough, but do you want to run this experiment for every use case? Establish a principle.", below: "Fine-tuning isn't always better, and deferring to engineering skips the PM's job of defining the tradeoffs." }
+          },
+        ]
+      },
+
+      data: {
+        topic: 'Analytics, Metrics & Dashboards',
+        questions: [
+          {
+            q: "Your team disagrees on whether to track DAU or WAU as the primary engagement metric. How do you decide?",
+            options: [
+              { text: "Track both and let leadership decide", level: 'below' },
+              { text: "Define your product's natural usage cadence first — daily habit = DAU, weekly tool = WAU", level: 'good' },
+              { text: "Benchmark against industry standards for your category", level: 'avg' },
+              { text: "Track DAU — it's more granular", level: 'below' },
+            ],
+            goodPM: "Ties metric choice to product intent and expected usage pattern — the metric should reflect natural user behaviour, not just granularity.",
+            avgPM: "Benchmarking gives context but can anchor you to the wrong metric if your product has a different use case than the category average.",
+            insight: { good: "You matched the metric to the product's intended use pattern — that's the right foundation.", avg: "Industry benchmarks give you context, but your product's intended cadence should drive the choice.", below: "More granularity isn't always better. Choosing DAU for a weekly product sets the team up to chase the wrong number." }
+          },
+          {
+            q: "An A/B test shows your new feature increased conversion by 8% but decreased session length by 12%. What do you do?",
+            options: [
+              { text: "Ship it — conversion is the primary metric", level: 'below' },
+              { text: "Investigate whether shorter sessions signal faster value delivery or disengagement; check downstream retention before deciding", level: 'good' },
+              { text: "Don't ship it — session length drop is a red flag", level: 'below' },
+              { text: "Run a follow-up test to understand the tradeoff better", level: 'avg' },
+            ],
+            goodPM: "Recognises that shorter sessions can be positive (efficiency) or negative (disengagement) — investigates 7-day and 30-day retention before deciding.",
+            avgPM: "A follow-up test is methodologically sound but delays the decision when existing retention data could already answer the question.",
+            insight: { good: "You asked the right follow-up question: does shorter mean faster value or early exit?", avg: "A follow-up test is thorough, but do you have 7-day retention data from this cohort already?", below: "Neither metric alone tells the story. Conversion up + retention down = false win. Conversion up + retention flat/up = real win." }
+          },
+          {
+            q: "A stakeholder asks you to add 15 new metrics to the company dashboard. How do you respond?",
+            options: [
+              { text: "Add all 15 — more data is better", level: 'below' },
+              { text: "Work with them to identify the 3–5 metrics tied to current business goals; make the rest available on-demand", level: 'good' },
+              { text: "Add them to a separate 'detailed' dashboard so the main one stays clean", level: 'avg' },
+              { text: "Decline — too many metrics create noise", level: 'below' },
+            ],
+            goodPM: "Applies the 'metrics that matter' principle — every metric on the main dashboard must tie to a current decision or goal, keeping it actionable.",
+            avgPM: "A secondary dashboard is a reasonable compromise but typically means the extra metrics never get reviewed and the problem recurs in 6 months.",
+            insight: { good: "A small set of decision-driving metrics beats a 15-metric dashboard nobody reads.", avg: "Secondary dashboards are a graveyard for metrics no one asked for. Have the conversation about what drives decisions.", below: "More data creates noise, not insight. Flat refusals create stakeholder friction. Neither is the answer." }
+          },
+          {
+            q: "Your data pipeline has a 6-hour lag — dashboards are always 6 hours behind. Users are complaining. How do you prioritise the fix?",
+            options: [
+              { text: "Fix it immediately — data lag undermines trust", level: 'below' },
+              { text: "Quantify which decisions are being delayed or made incorrectly due to the lag; prioritise fix if it's blocking high-frequency decisions", level: 'good' },
+              { text: "Add a 'data as of [time]' timestamp to dashboards so users know the lag", level: 'avg' },
+              { text: "Build a real-time streaming pipeline to eliminate the lag entirely", level: 'below' },
+            ],
+            goodPM: "Frames the infrastructure decision in business impact terms — a 6-hour lag on a weekly report is fine; on an hourly operations dashboard it's critical.",
+            avgPM: "Timestamps improve transparency and build trust, but don't address the actual delay for teams making time-sensitive decisions.",
+            insight: { good: "Impact-based prioritisation means you might not need to fix it at all — or you need to fix it urgently. You asked the right question.", avg: "Transparency is good, but if the lag is blocking real decisions, a label doesn't solve the problem.", below: "Reactive urgency ignores business impact. Real-time streaming is often overkill and expensive for the actual use case." }
+          },
+          {
+            q: "How do you validate that your product's core metric is the right one to optimise?",
+            options: [
+              { text: "If leadership approved it, it's the right metric", level: 'below' },
+              { text: "Validate that it correlates with long-term retention and revenue — a good core metric predicts future health", level: 'good' },
+              { text: "If users engage with the feature tied to the metric, it's working", level: 'avg' },
+              { text: "If the metric is improving quarter-over-quarter, it's the right one", level: 'below' },
+            ],
+            goodPM: "Tests whether the metric is a leading indicator of retention and revenue — optimising a vanity metric that doesn't correlate with business outcomes is a common trap.",
+            avgPM: "Feature engagement validates that the metric is active, but doesn't confirm it predicts the business outcomes you actually care about.",
+            insight: { good: "Correlation with retention and revenue is the acid test for a core metric. You're thinking about outcomes, not outputs.", avg: "Engagement is a good signal but not sufficient. Does that engagement actually lead to retention and revenue?", below: "Leadership approval and growth trends tell you nothing about whether you're optimising the right thing." }
+          },
+        ]
+      },
+
+      generalist: {
+        topic: 'Product Sense & Strategy',
+        questions: [
+          {
+            q: "You have three equally requested features but bandwidth for only one this quarter. How do you decide?",
+            options: [
+              { text: "Build the one that's fastest to ship", level: 'below' },
+              { text: "Score each on reach, impact, confidence, and effort relative to your current strategic goal", level: 'good' },
+              { text: "Survey users to vote on their preference", level: 'avg' },
+              { text: "Build what your highest-value customers want most", level: 'below' },
+            ],
+            goodPM: "Uses a structured framework (e.g., RICE) tied to the current strategic goal — not effort, stakeholder seniority, or a popularity contest.",
+            avgPM: "User surveys validate demand but don't weigh effort or strategic fit, and can be gamed by the most vocal minority.",
+            insight: { good: "A framework tied to strategy gives you a defensible decision and a repeatable process.", avg: "User votes are directional but don't account for effort or alignment to your current strategic bets.", below: "Effort-first and customer-seniority-first prioritisation optimise for the wrong outcomes." }
+          },
+          {
+            q: "Your product's NPS is -12. Where do you start?",
+            options: [
+              { text: "Run a redesign of the core user flow", level: 'below' },
+              { text: "Segment NPS by cohort, feature usage, and lifecycle stage; interview detractors to find common themes", level: 'good' },
+              { text: "Analyse support tickets to find the most common complaints", level: 'avg' },
+              { text: "Launch a personalised follow-up programme for detractors", level: 'below' },
+            ],
+            goodPM: "Segments and qualifies before acting — a single NPS number tells you nothing about what to fix or which users to prioritise.",
+            avgPM: "Support tickets give a biased sample (only users who bother to complain) but are a reasonable starting point for discovery.",
+            insight: { good: "Segmentation first. NPS -12 for power users means something completely different than NPS -12 for new users.", avg: "Support tickets are valuable signal but biased toward vocal complainers. Combine with proactive cohort interviews.", below: "Jumping to redesigns or CRM programmes before diagnosing the root cause wastes time and budget." }
+          },
+          {
+            q: "Three days before launch, engineering finds a bug affecting 5% of users. Do you launch?",
+            options: [
+              { text: "Delay launch until the bug is fully fixed", level: 'below' },
+              { text: "Assess severity and workaround availability; launch if non-blocking for 95%, with a fix queued for the next sprint", level: 'good' },
+              { text: "Launch on time — a 5% impact is within acceptable range", level: 'below' },
+              { text: "Do a staged rollout to 20% of users first to contain the risk", level: 'avg' },
+            ],
+            goodPM: "Makes a risk-adjusted call: severity × affected %, workaround availability, and speed of follow-up fix — not a reflexive delay or blind launch.",
+            avgPM: "Staged rollout is solid risk mitigation, but if the bug is severe, you're just delaying the problem for 20% of users.",
+            insight: { good: "Risk-adjusted launch decisions are exactly what PMs own. You weighed severity, scope, and mitigation together.", avg: "Staged rollout is smart — but have you assessed whether the bug is severe enough to warrant any delay?", below: "Reflexive delays miss launches. Blind launches damage trust. The answer depends on severity, not a rule." }
+          },
+          {
+            q: "A senior stakeholder keeps adding scope mid-sprint. How do you handle it?",
+            options: [
+              { text: "Accommodate the changes — they're senior", level: 'below' },
+              { text: "Acknowledge their input, log it in the backlog, explain sprint impact, and offer to prioritise it next cycle", level: 'good' },
+              { text: "Escalate to your manager to set boundaries", level: 'below' },
+              { text: "Set up a weekly intake sync to channel all scope requests outside sprint", level: 'avg' },
+            ],
+            goodPM: "Protects team focus with data (sprint impact) while respecting the stakeholder — turns chaos into a structured process without being confrontational.",
+            avgPM: "A weekly intake process is the right long-term fix but doesn't resolve the immediate situation or the relationship.",
+            insight: { good: "You respected the stakeholder, protected the team, and created a clear process — all at once.", avg: "A structured intake process is the right long-term solution. But what do you do right now, in this sprint?", below: "Accommodating erodes team trust and delivery. Escalating escalates the relationship problem without fixing the process." }
+          },
+          {
+            q: "How do you decide when a product is ready to launch vs. needs more iteration?",
+            options: [
+              { text: "When engineering says it's done", level: 'below' },
+              { text: "When it reliably solves the core problem for your target segment, success metrics are testable, and risks are mitigated to an acceptable level", level: 'good' },
+              { text: "When it's better than the current solution or the leading competitor", level: 'avg' },
+              { text: "After it passes QA with no critical bugs", level: 'below' },
+            ],
+            goodPM: "Defines launch readiness as: core job-to-be-done is solved, success metrics are in place to learn from, and risks are understood — not just technical completeness.",
+            avgPM: "Benchmarking against competitors sets a quality bar but doesn't tell you whether your product actually solves the user's problem.",
+            insight: { good: "Launch readiness is a product decision, not a technical one. You defined it correctly.", avg: "Being better than alternatives is useful context, but does it solve the problem reliably for your specific target user?", below: "Engineering done-ness and bug-free status are necessary but not sufficient for a meaningful product launch." }
+          },
+        ]
+      },
+
+    };
+
+    // ── State ─────────────────────────────────────────────────────
+    const params   = new URLSearchParams(window.location.search);
+    const roleKey  = params.get('role') || sessionStorage.getItem('pathpm_role') || 'generalist';
+    const roleLabel = sessionStorage.getItem('pathpm_role_label') || 'Generalist PM';
+
+    const quizData = QUIZ_DATA[roleKey] || QUIZ_DATA.generalist;
+    const questions = quizData.questions;
+
+    let currentQ   = 0;
+    let score      = 0;
+    let userAnswers = []; // { level, insight }
+
+    // ── Init ──────────────────────────────────────────────────────
+    document.getElementById('navRoleTag').textContent   = roleLabel;
+    document.getElementById('quizTopicTag').textContent = quizData.topic;
+
+    renderQuestion();
+
+    function renderQuestion() {
+      const q = questions[currentQ];
+      document.getElementById('quizCounter').textContent = `QUESTION ${currentQ + 1} OF ${questions.length}`;
+      document.getElementById('quizProgressFill').style.width = (currentQ / questions.length * 100) + '%';
+      document.getElementById('quizQuestion').textContent = q.q;
+      document.getElementById('quizFeedback').classList.remove('visible');
+      document.getElementById('nextBtn').classList.add('hidden');
+
+      const optContainer = document.getElementById('quizOptions');
+      optContainer.innerHTML = q.options.map((o, i) => `
+        <div class="quiz-option" data-level="${o.level}" data-index="${i}" onclick="selectAnswer(this)">
+          <span class="opt-letter">${LETTERS[i]}</span>
+          <span>${o.text}</span>
+        </div>
+      `).join('');
+    }
+
+    function selectAnswer(el) {
+      if (document.getElementById('quizFeedback').classList.contains('visible')) return;
+
+      const q     = questions[currentQ];
+      const level = el.dataset.level;
+      const idx   = parseInt(el.dataset.index);
+
+      // Track answer
+      userAnswers.push({ level, insight: q.options[idx].level });
+      if (level === 'good') score++;
+
+      // Reveal all options
+      document.querySelectorAll('.quiz-option').forEach(opt => {
+        opt.onclick = null;
+        const l = opt.dataset.level;
+        if (l === 'good')  { opt.classList.add('opt-good');  opt.innerHTML += '<span class="opt-badge good">Good PM</span>'; }
+        else if (l === 'avg') { opt.classList.add('opt-avg'); opt.innerHTML += '<span class="opt-badge avg">Average PM</span>'; }
+        else opt.classList.add('opt-below');
+      });
+
+      // Feedback
+      document.getElementById('fbGoodText').textContent = q.goodPM;
+      document.getElementById('fbAvgText').textContent  = q.avgPM;
+
+      const insightMap = { good: q.insight.good, avg: q.insight.avg, below: q.insight.below };
+      document.getElementById('fbYouText').textContent = insightMap[level] || q.insight.below;
+
+      document.getElementById('quizFeedback').classList.add('visible');
+
+      const isLast = currentQ === questions.length - 1;
+      const btn = document.getElementById('nextBtn');
+      btn.textContent = isLast ? 'See My Results →' : 'Next Question →';
+      btn.classList.remove('hidden');
+    }
+
+    function nextQuestion() {
+      currentQ++;
+      if (currentQ >= questions.length) {
+        showResults();
+      } else {
+        renderQuestion();
+      }
+    }
+
+    function showResults() {
+      document.getElementById('questionScreen').style.display = 'none';
+      const rs = document.getElementById('resultsScreen');
+      rs.classList.add('visible');
+
+      // Persist quiz completion
+      sessionStorage.setItem(`pathpm_quiz_done_${roleKey}`, score);
+
+      // Update readiness score (boost by up to 12 points based on performance)
+      const currentScore = parseInt(sessionStorage.getItem('pathpm_score') || '62');
+      const bonus = Math.round((score / questions.length) * 12);
+      const newScore = Math.min(100, currentScore + bonus);
+      sessionStorage.setItem('pathpm_score', newScore);
+
+      document.getElementById('rScore').textContent = score;
+
+      const LEVELS = [
+        { min: 5, label: 'Strong PM Thinking', msg: 'You consistently chose the structured, data-driven path. You think like a senior PM — diagnosing before acting, quantifying tradeoffs, and leading with context.' },
+        { min: 4, label: 'Solid PM Instincts', msg: 'Strong foundation with a few areas to sharpen. You understand PM principles well and make mostly sound calls — focusing on the edge cases will take you to the next level.' },
+        { min: 3, label: 'Developing PM Thinking', msg: 'Good instincts in some areas, but there\'s room to build more structured habits. Review the feedback from questions you missed — those patterns repeat in real interviews.' },
+        { min: 0, label: 'Early Stage', msg: 'Some gaps in PM fundamentals to address. The good news: these are learnable frameworks. Work through the learning path modules and retake — you\'ll see quick improvement.' },
+      ];
+      const level = LEVELS.find(l => score >= l.min) || LEVELS[LEVELS.length - 1];
+      document.getElementById('rLevel').textContent = level.label;
+      document.getElementById('rMsg').textContent   = level.msg;
+
+      // Breakdown: pick one representative question to show good/avg/you
+      const firstQ = questions[0];
+      document.getElementById('rBreakdown').innerHTML = `
+        <div class="rb-row good">
+          <span class="rb-label">Good PM</span>
+          <span class="rb-text">${firstQ.goodPM}</span>
+        </div>
+        <div class="rb-row avg">
+          <span class="rb-label">Average PM</span>
+          <span class="rb-text">${firstQ.avgPM}</span>
+        </div>
+        <div class="rb-row you">
+          <span class="rb-label">You scored ${score}/5</span>
+          <span class="rb-text">${level.msg}</span>
+        </div>
+      `;
+    }
+
+    function retakeQuiz() {
+      currentQ  = 0;
+      score     = 0;
+      userAnswers = [];
+      document.getElementById('resultsScreen').classList.remove('visible');
+      document.getElementById('questionScreen').style.display = '';
+      renderQuestion();
+    }
+  </script>
+
+</body>
+</html>
