@@ -253,10 +253,12 @@
         if (keywords.some(kw => lower.includes(kw))) { industry = label; break; }
       }
 
-      // Try to extract current role — look for common job title patterns
+      // Try to extract current role — match title keyword + up to 2 qualifier words only
       const titlePatterns = [
-        /(?:i am|i'm|currently|working as|position[:\s]+|title[:\s]+|role[:\s]+)\s*([A-Z][a-zA-Z\s]{3,35})/i,
-        /((?:senior|lead|principal|staff|junior|associate)?\s*(?:product manager|software engineer|data analyst|business analyst|developer|designer|consultant|analyst|engineer|manager|director|vp|head)[^,\n]{0,40})/i,
+        /(?:i am|i'm|currently|working as|position[:\s]+|title[:\s]+|role[:\s]+)\s*([A-Z][a-zA-Z]{2,}(?:\s+[A-Z][a-zA-Z]{2,}){0,3})/i,
+        /((?:senior|lead|principal|staff|junior|associate)\s+(?:software\s+)?(?:product\s+manager|software\s+engineer|data\s+analyst|business\s+analyst|developer|designer|consultant|analyst|engineer|manager|director))/i,
+        /((?:product\s+manager|software\s+engineer|data\s+analyst|business\s+analyst|program\s+management|management\s+consultant|software\s+developer|product\s+owner|data\s+scientist))/i,
+        /((?:consultant|analyst|engineer|manager|developer|designer|director)\b)/i,
       ];
       let currentRole = '';
       for (const pattern of titlePatterns) {
@@ -264,9 +266,10 @@
         if (match) { currentRole = match[1].trim().replace(/\s+/g, ' ').slice(0, 40); break; }
       }
 
-      // Try to extract company name — look for "at <Company>" patterns
+      // Try to extract company name — look for "at <Company>" followed by a separator
+      // Stop at punctuation, numbers, or 2+ spaces to avoid grabbing trailing resume content
       let company = '';
-      const companyMatch = text.match(/(?:at|@|,\s*)([A-Z][a-zA-Z\s&.]{2,30})(?:\s*[|\-·•,\n])/);
+      const companyMatch = text.match(/(?:at|@)\s+([A-Z][a-zA-Z&.]+(?:\s+[A-Z][a-zA-Z&.]+){0,3})(?=\s*[,|\-·•\n]|\s{2,}|\d)/);
       if (companyMatch) company = companyMatch[1].trim();
 
       // Try to estimate years of experience from year ranges
