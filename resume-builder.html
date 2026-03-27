@@ -91,7 +91,6 @@
           <p class="rb-label" style="margin-bottom:10px;">📋 Resume Being Used</p>
           <div class="rb-snap-row"><span class="rb-snap-key">Name</span><span class="rb-snap-val" id="snapName">—</span></div>
           <div class="rb-snap-row"><span class="rb-snap-key">Role</span><span class="rb-snap-val" id="snapRole">—</span></div>
-          <div class="rb-snap-row"><span class="rb-snap-key">Company</span><span class="rb-snap-val" id="snapCompany">—</span></div>
           <div class="rb-snap-row"><span class="rb-snap-key">Experience</span><span class="rb-snap-val" id="snapExp">—</span></div>
           <div class="rb-snap-row"><span class="rb-snap-key">Skills</span><span class="rb-snap-val" id="snapSkills">—</span></div>
         </div>
@@ -300,7 +299,6 @@
       if (!resumeData) return;
       document.getElementById('snapName').textContent    = resumeData.name      || '—';
       document.getElementById('snapRole').textContent    = resumeData.currentRole || '—';
-      document.getElementById('snapCompany').textContent = resumeData.company    || '—';
       document.getElementById('snapExp').textContent     = resumeData.yearsExp   || '—';
       document.getElementById('snapSkills').textContent  = (resumeData.skills || []).slice(0, 4).join(', ') || '—';
       document.getElementById('resumeSnapshot').classList.remove('hidden');
