@@ -258,26 +258,8 @@
       document.getElementById('sidebarScoreNum').textContent  = score;
       setTimeout(() => { document.getElementById('sidebarBarFill').style.width = score + '%'; }, 300);
 
-      // Check if a newer resume was uploaded since sessionStorage was last set
-      const storedResumeId = sessionStorage.getItem('pathpm_resume_id') || '';
-      let latestResumeId = '';
-      try {
-        const sbUser = await getCurrentUser();
-        if (sbUser) {
-          const { data: latest } = await sb.from('resume_uploads')
-            .select('id').eq('user_id', sbUser.id)
-            .order('uploaded_at', { ascending: false }).limit(1).maybeSingle();
-          latestResumeId = latest?.id || '';
-        }
-      } catch(e) {}
-
-      const resumeChanged = latestResumeId && latestResumeId !== storedResumeId;
-      const needsReparse  = resumeChanged || !resumeData || !resumeData.experiences ||
-        resumeData.experiences.length <= 1 ||
-        resumeData.experiences.some(e => !e.bullets || e.bullets.length === 0);
-      if (needsReparse) {
-        await loadResumeFromSupabase();
-      }
+      // Always re-fetch from Supabase to ensure the latest uploaded resume is shown
+      await loadResumeFromSupabase();
       updateResumeSourceBanner();
     })();
 
