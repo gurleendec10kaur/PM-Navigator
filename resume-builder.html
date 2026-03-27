@@ -523,11 +523,15 @@
         }
 
         // Step 2: Try to download + re-parse the actual PDF to get full experiences
-        const { data: uploads } = await sb.from('resume_uploads')
-          .select('file_name, storage_path')
-          .eq('user_id', sbUser.id)
-          .order('uploaded_at', { ascending: false })
-          .limit(1);
+        // Prefer the resume the user explicitly selected ("Use this"), fall back to most recent
+        const selectedId = sessionStorage.getItem('pathpm_resume_id') || '';
+        let uploadsQuery = sb.from('resume_uploads').select('id, file_name, storage_path').eq('user_id', sbUser.id);
+        if (selectedId) {
+          uploadsQuery = uploadsQuery.eq('id', selectedId).limit(1);
+        } else {
+          uploadsQuery = uploadsQuery.order('uploaded_at', { ascending: false }).limit(1);
+        }
+        const { data: uploads } = await uploadsQuery;
 
         if (uploads?.length && uploads[0].storage_path) {
           const latest = uploads[0];
