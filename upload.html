@@ -350,7 +350,8 @@
         const nextStart = i + 1 < dateMatches.length ? dateMatches[i + 1].start : workSection.length;
 
         const before   = workSection.slice(Math.max(0, d.start - 300), d.start);
-        const segments = before.split(/\s{3,}|\n+/).map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
+        // Split by whitespace clusters, newlines, AND bullet chars so bullet text doesn't bleed into company
+        const segments = before.split(/\s{3,}|\n+|[•·]/).map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
 
         // Walk backwards — collect segments until we hit a long one (a bullet)
         const titleSegs = [];
@@ -359,7 +360,10 @@
           titleSegs.unshift(segments[k]);
         }
 
-        const last   = titleSegs[titleSegs.length - 1] || '';
+        // For "CompanyName — " format, extract just the text before the trailing dash
+        const rawLast = titleSegs[titleSegs.length - 1] || '';
+        const dashIdx = rawLast.search(/\s*[:—–-]+\s*$/);
+        const last   = dashIdx > 0 ? rawLast.slice(0, dashIdx).trim() : rawLast;
         const second = titleSegs[titleSegs.length - 2] || '';
         const third  = titleSegs[titleSegs.length - 3] || '';
         const fourth = titleSegs[titleSegs.length - 4] || '';
