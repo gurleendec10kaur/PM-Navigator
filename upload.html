@@ -274,24 +274,42 @@
       const companyMatch = text.match(/(?:at|@)\s+([A-Z][a-zA-Z&.]+(?:\s+[A-Z][a-zA-Z&.]+){0,3})(?=\s*[,|\-·•\n]|\s{2,}|\d)/);
       if (companyMatch) company = companyMatch[1].trim();
 
-      // Try to estimate years of experience from year ranges
-      const yearMatches = text.match(/20\d{2}/g) || [];
-      const years = yearMatches.map(Number).filter(y => y >= 2010 && y <= new Date().getFullYear());
+      // Try to estimate years of experience — handle both 4-digit (2022) and short month+2-digit (Feb 23)
+      const yearMatches4 = (text.match(/20\d{2}/g) || []).map(Number);
+      const shortMonthDates = text.match(/(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s,]+(\d{2})\b/gi) || [];
+      const years2 = shortMonthDates.map(m => {
+        const d = m.match(/(\d{2})$/); if (!d) return null;
+        const y = parseInt(d[1]);
+        return (y >= 15 && y <= 35) ? 2000 + y : null;
+      }).filter(Boolean);
+      const allYears = [...yearMatches4, ...years2].filter(y => y >= 2010 && y <= new Date().getFullYear());
       let yearsExp = '';
-      if (years.length >= 2) {
-        const span = Math.max(...years) - Math.min(...years);
+      if (allYears.length >= 2) {
+        const span = Math.max(...allYears) - Math.min(...allYears);
         yearsExp = span <= 1 ? '< 1 year' : span + ' years';
       }
 
       // Extract full work experience entries
       const experiences = extractExperiences(text);
 
+      // Fallback: pull company from first parsed experience if regex couldn't find one
+      if (!company && experiences.length > 0 && experiences[0].company) {
+        company = experiences[0].company;
+      }
+
       return { recommendedRole, skills, industry, currentRole, company, yearsExp, scores, experiences };
     }
 
     function extractExperiences(rawText) {
       // Fix PDF artifact: spaced-out digits in year ("'2 2" → "'22")
-      const t = rawText.replace(/['\u2019](\d)\s+(\d)/g, "'$1$2");
+      let t = rawText.replace(/['\u2019](\d)\s+(\d)/g, "'$1$2");
+
+      // Fix PDF artifact: remove ( wrapping date range starts like "(\nFeb 23" or "( Feb 23"
+      t = t.replace(/\(\s*\n?\s*(?=(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec))/gi, ' ');
+      // Remove ) after date range ends like "Sep 23)" or "2023)"
+      t = t.replace(/((?:present|current|till\s*date|\d{2,4}))\s*\)/gi, '$1 ');
+      // Remove "ActionVerb )" pattern — e.g. "Tracked ) Bullet" → "Tracked Bullet"
+      t = t.replace(/\b([A-Z][a-z]+)\s*\)\s*/g, '$1 ');
 
       // Collapse letter-spacing PDF artifact: "T h oucentric" → "Thoucentric"
       function collapseLetterSpacing(s) {
@@ -332,7 +350,7 @@
         const nextStart = i + 1 < dateMatches.length ? dateMatches[i + 1].start : workSection.length;
 
         const before   = workSection.slice(Math.max(0, d.start - 300), d.start);
-        const segments = before.split(/\s{3,}/).map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
+        const segments = before.split(/\s{3,}|\n+/).map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
 
         // Walk backwards — collect segments until we hit a long one (a bullet)
         const titleSegs = [];
@@ -360,18 +378,18 @@
           title   = collapseLetterSpacing([fourth, third, second].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim());
         }
 
-        title   = title.replace(/[,|·]+$/, '').trim();
-        company = company.replace(/[,|·]+$/, '').trim();
+        title   = title.replace(/[,|·\s:—–-]+$/, '').trim();
+        company = company.replace(/[,|·\s:—–-]+$/, '').trim();
 
-        if (!title || title.length < 2 || title.length > 120) return;
+        if (title.length > 120) return;
         if (SKIP.test(title) || SKIP.test(company)) return;
         if (CONTACT.test(title)) return;
 
         // Full range — isJobHeaderUp filter below handles any leaked next-entry metadata
         const after    = workSection.slice(d.end, nextStart);
         const rawSegs  = after
-          .split(/\s{3,}/)
-          .map(s => s.replace(/\s+/g, ' ').trim())
+          .split(/\s{3,}|\n+|[•·]/)
+          .map(s => s.replace(/\s+/g, ' ').replace(/^\s*\)\s*/, '').trim())
           .filter(s => s.length > 8 && /[a-z]{3,}/.test(s));
 
         const ACTION_VERB_UP = /^(?:led|built|managed|created|designed|analyzed|defined|launched|drove|scaled|shipped|ran|owned|partnered|aligned|facilitated|collaborated|championed|spearheaded|developed|implemented|architected|established|identified|delivered|coordinated|optimized|streamlined|increased|reduced|improved|supported|executed|handled|conducted|performed|prepared|reported|presented|communicated|trained|mentored|monitored|reviewed|evaluated|assessed|recommended|proposed|initiated|planned|organized|directed|supervised|oversaw|ensured|maintained|deployed|released|tested|validated|documented|researched|investigated|synthesized|forecasted|negotiated|secured|acquired|generated|achieved|accomplished|exceeded|met|produced|completed|hired|recruited|grew|expanded|rolled|piloted|iterated|refined|enhanced|upgraded|migrated|transformed|redesigned|integrated|automated|simplified|influenced|contributed|provided|enabled|leveraged|utilized|worked|helped|assisted|served|functioned|operated|advised|formulated|briefed|liaised|drafted|mapped|shaped|closed|resolved|diagnosed|structured|pitched|tracked|benchmarked|calibrated|governed|audited|translated|prioritized|modelled|presented|owned)\b/i;
