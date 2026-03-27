@@ -81,7 +81,7 @@
           placeholder="Bullet points are fine — share what comes to mind..."
           rows="1"
           onkeydown="handleKey(event)"
-          oninput="autoResize(this); clearInputWarning(); hideStarterChips()"
+          oninput="autoResize(this); onInputChange(this); hideStarterChips()"
         ></textarea>
         <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="Voice input">
           <svg id="micIcon" width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -413,6 +413,11 @@
     function clearInputWarning() {
       const warn = document.getElementById('inputWarning');
       if (warn) warn.classList.add('hidden');
+    }
+
+    function onInputChange(el) {
+      // Only clear the warning once the user has written enough — not on every keystroke
+      if (isMeaningfulInput(el.value)) clearInputWarning();
     }
 
     /* ─── SEND MESSAGE ─── */
