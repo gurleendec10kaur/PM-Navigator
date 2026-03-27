@@ -109,11 +109,9 @@
             <p class="edit-hint" id="editHint">✏ Click on any text to edit it directly. Click "Done" when finished.</p>
             <p class="resume-location" id="resumeSubtitle">Bengaluru, IN</p>
 
-            <div class="resume-alert" id="resumeAlert">
+            <div class="resume-alert hidden" id="resumeAlert">
               <span>⚠️</span>
-              <div>
-                <strong>Title Optimisation:</strong> Your current title '<span id="currentTitle">Business Analyst</span>' only matches 32% of JD keywords. Consider upgrading your title to <strong id="suggestedTitle">Product Specialist</strong> or <strong>Junior PM</strong>.
-              </div>
+              <div id="resumeAlertText"></div>
             </div>
 
             <div class="resume-name-block">
@@ -828,8 +826,18 @@
         document.getElementById('resumeName').textContent     = userName.toUpperCase();
         document.getElementById('resumeJobTitle').textContent = jobTitle;
         document.getElementById('resumeSubtitle').textContent = userName + ' · Tailored for ' + jobTitle;
-        document.getElementById('currentTitle').textContent   = role;
         document.getElementById('atsScore').textContent       = atsScore;
+
+        // Title optimisation alert — only show if current title differs and match % is low
+        const titleMatchPct = jdKws.length > 0 ? Math.round(matched.length / jdKws.length * 100) : 50;
+        const alertEl = document.getElementById('resumeAlert');
+        if (role && jobTitle && role.toLowerCase() !== jobTitle.toLowerCase() && titleMatchPct < 60) {
+          document.getElementById('resumeAlertText').innerHTML =
+            `<strong>Title Optimisation:</strong> Your current title '<strong>${role}</strong>' matches ${titleMatchPct}% of JD keywords. Consider updating it to <strong>${jobTitle}</strong> to improve ATS ranking.`;
+          alertEl.classList.remove('hidden');
+        } else {
+          alertEl.classList.add('hidden');
+        }
         document.getElementById('resumeSummary').textContent  = summary;
         document.getElementById('resumeExperience').innerHTML = expHTML;
         document.querySelector('.rs-tags').innerHTML = competencies.map(c => `<span class="rs-tag" data-editable>${c}</span>`).join('');
