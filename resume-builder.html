@@ -76,17 +76,6 @@
           Generate Tailored Resume →
         </button>
 
-        <div class="rb-previous">
-          <p class="rb-prev-label">PREVIOUS TAILORED RESUMES</p>
-          <div class="rb-prev-list">
-            <button class="rb-prev-item" onclick="loadPrevious('Senior PM @ Flipkart')">
-              <span>📄</span> Senior PM @ Flipkart
-            </button>
-            <button class="rb-prev-item" onclick="loadPrevious('Growth Lead @ Zomato')">
-              <span>📄</span> Growth Lead @ Zomato
-            </button>
-          </div>
-        </div>
       </div>
 
       <!-- MIDDLE: RESUME PREVIEW -->
@@ -874,14 +863,6 @@
       document.getElementById('generateBtn').style.opacity = val ? '1' : '0.6';
     }
 
-    function loadPrevious(title) {
-      document.getElementById('resumePlaceholder').classList.add('hidden');
-      document.getElementById('resumeDoc').classList.remove('hidden');
-      document.getElementById('relevantCard').classList.remove('hidden');
-      document.getElementById('resumeJobTitle').textContent = title;
-      document.getElementById('dlRole').textContent = title;
-      showToast('Loaded: ' + title);
-    }
 
     // ── Inline editing ────────────────────────────────────────────
     let editMode = false;
