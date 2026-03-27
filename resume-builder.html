@@ -17,6 +17,16 @@
     .resume-doc.edit-mode [contenteditable="true"]:focus { background: #dcfce7; }
     .edit-hint { font-size: 0.68rem; color: #16a34a; margin-bottom: 6px; display: none; }
     .resume-doc.edit-mode .edit-hint { display: block; }
+    /* Resume snapshot */
+    .rb-snapshot { background:#fff; border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-top:16px; margin-bottom:4px; }
+    .rb-snap-row { display:flex; justify-content:space-between; gap:8px; padding:5px 0; border-bottom:1px solid #f3f4f6; font-size:0.78rem; }
+    .rb-snap-row:last-child { border-bottom:none; }
+    .rb-snap-key { color:var(--text-muted); font-weight:600; flex-shrink:0; }
+    .rb-snap-val { color:var(--dark); text-align:right; word-break:break-word; }
+    /* Tips */
+    .rb-tips { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:14px 16px; margin-top:14px; }
+    .rb-tips-list { margin:0; padding-left:16px; display:flex; flex-direction:column; gap:7px; }
+    .rb-tips-list li { font-size:0.78rem; color:#78350f; line-height:1.5; }
     /* Resume source banner */
     .rb-source-banner { display:flex; align-items:center; gap:8px; font-size:0.78rem; border-radius:8px; padding:8px 12px; margin-bottom:14px; }
     .rb-source-banner.loaded { background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; }
@@ -75,6 +85,26 @@
         <button class="btn-generate" id="generateBtn" onclick="generateResume()">
           Generate Tailored Resume →
         </button>
+
+        <!-- RESUME SNAPSHOT -->
+        <div class="rb-snapshot hidden" id="resumeSnapshot">
+          <p class="rb-label" style="margin-bottom:10px;">📋 Resume Being Used</p>
+          <div class="rb-snap-row"><span class="rb-snap-key">Name</span><span class="rb-snap-val" id="snapName">—</span></div>
+          <div class="rb-snap-row"><span class="rb-snap-key">Role</span><span class="rb-snap-val" id="snapRole">—</span></div>
+          <div class="rb-snap-row"><span class="rb-snap-key">Company</span><span class="rb-snap-val" id="snapCompany">—</span></div>
+          <div class="rb-snap-row"><span class="rb-snap-key">Experience</span><span class="rb-snap-val" id="snapExp">—</span></div>
+          <div class="rb-snap-row"><span class="rb-snap-key">Skills</span><span class="rb-snap-val" id="snapSkills">—</span></div>
+        </div>
+
+        <!-- TIPS -->
+        <div class="rb-tips">
+          <p class="rb-label" style="margin-bottom:10px;">💡 Tips for best results</p>
+          <ul class="rb-tips-list">
+            <li>Paste the <strong>full JD</strong> — include responsibilities, requirements, and preferred qualifications</li>
+            <li>More JD text = <strong>better keyword matching</strong> and a higher ATS score</li>
+            <li>After generating, use <strong>✏ Edit</strong> to tweak any text directly in the resume</li>
+          </ul>
+        </div>
 
       </div>
 
@@ -248,6 +278,7 @@
       // Always re-fetch from Supabase to ensure the latest uploaded resume is shown
       await loadResumeFromSupabase();
       updateResumeSourceBanner();
+      updateResumeSnapshot();
     })();
 
     function updateResumeSourceBanner() {
@@ -263,6 +294,16 @@
         banner.className = 'rb-source-banner none';
         banner.innerHTML = `⚠️ No resume found. <a href="upload.html" style="color:inherit;font-weight:600;text-decoration:underline">Upload one first →</a>`;
       }
+    }
+
+    function updateResumeSnapshot() {
+      if (!resumeData) return;
+      document.getElementById('snapName').textContent    = resumeData.name      || '—';
+      document.getElementById('snapRole').textContent    = resumeData.currentRole || '—';
+      document.getElementById('snapCompany').textContent = resumeData.company    || '—';
+      document.getElementById('snapExp').textContent     = resumeData.yearsExp   || '—';
+      document.getElementById('snapSkills').textContent  = (resumeData.skills || []).slice(0, 4).join(', ') || '—';
+      document.getElementById('resumeSnapshot').classList.remove('hidden');
     }
 
     // ── PDF text extraction (same as upload.html) ─────────────────
